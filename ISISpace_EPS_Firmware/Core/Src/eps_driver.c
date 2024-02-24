@@ -8,9 +8,11 @@
 
 #include "eps_driver.h"
 
-#define PWR_SYS_ADDR 0x30 // if this macro doesn't work, then just define it as a uint8_t below in another section
+const uint8_t EPS_I2C_ADDR = 0x30; // EPS I2C address
 
-uint16_t CH_VIP[6];
+const uint8_t EPS_COMMAND_STID = 0x1A; // "System Type Identifier (STID)" (Software ICD, page 17)
+const uint8_t EPS_COMMAND_IVID = 0x07; // "Interface Version Identifier (IVID)" (Software ICD, page 18)
+const uint8_t EPS_COMMAND_BID = 0x20; // "Board Identifier (BID)" (Software ICD, page 20)
 
 void eps_debug_print_channel_stats_once(EPS_CHANNEL_t eps_channel) {
 	PDU_HK_D* EPS_data_received;
@@ -25,6 +27,11 @@ void eps_debug_print_channel_stats_once(EPS_CHANNEL_t eps_channel) {
 
 	// at this point we have the Channel 0 voltage, current and power readings stored in CH_VIP.
 
+	char msg1[100];
+	sprintf(
+		msg1,
+		"Channel 0: V=%d, I=%d, P=%d, Ch1: V=%d, I=%d, P=%d, Ch2: V=%d, I=%d, P=%d\n",
+	)
 	HAL_UART_Transmit(&hlpuart1, (uint8_t*)CH_VIP, 6, HAL_MAX_DELAY);
 	HAL_UART_Transmit(&hlpuart1, (uint8_t*)newline, strlen((char*)newline), HAL_MAX_DELAY);
 	//HAL_Delay(1000);
@@ -56,46 +63,37 @@ void eps_debug_print_channel_stats_once(EPS_CHANNEL_t eps_channel) {
 
 //Driver functions
 
-void eps_system_reset(){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
+void eps_system_reset() {
 	uint8_t CC = 0xAA;
-	uint8_t BID = 0x20;
 	uint8_t Reset_key = 0xA6;
 
 	uint8_t cmd_buf[5];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 	cmd_buf[4] = Reset_key;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 5, 1000);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 5, 1000);
 }
 
 
-uint8_t eps_no_operation(){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
+uint8_t eps_no_operation() {
 	uint8_t CC = 0x02;
-	uint8_t BID = 0x20;
-
     uint8_t cmd_buf[4];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
 
 
 	uint8_t rx_buf[5];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 5, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
 
 	uint8_t status = rx_buf[4];
 
@@ -103,26 +101,21 @@ uint8_t eps_no_operation(){
 }
 
 
-uint8_t eps_cancel_oper(){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
+uint8_t eps_cancel_oper() {
 	uint8_t CC = 0x04;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[4];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
 
 
 	uint8_t rx_buf[5];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 5, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
 
 	uint8_t status = rx_buf[4];
 
@@ -131,44 +124,34 @@ uint8_t eps_cancel_oper(){
 
 
 void eps_watchdog() {
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x06;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[4];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
 }
 
 
 uint8_t eps_output_bus_group_on(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x10;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[8];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 	cmd_buf[4] = CH_BF;
 	cmd_buf[6] = CH_EXT_BF;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 8, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 8, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[5];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 5, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
 
 	uint8_t status = rx_buf[4];
 
@@ -177,26 +160,21 @@ uint8_t eps_output_bus_group_on(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
 
 
 uint8_t eps_output_bus_group_off(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x12;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[8];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 	cmd_buf[4] = CH_BF;
 	cmd_buf[6] = CH_EXT_BF;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 8, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 8, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[5];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 5, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
 
 	uint8_t status = rx_buf[4];
 
@@ -205,26 +183,21 @@ uint8_t eps_output_bus_group_off(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
 
 
 uint8_t eps_output_bus_group_state(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x14;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[8];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 	cmd_buf[4] = CH_BF;
 	cmd_buf[6] = CH_EXT_BF;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 8, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 8, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[5];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 5, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
 
 	uint8_t status = rx_buf[4];
 
@@ -233,25 +206,20 @@ uint8_t eps_output_bus_group_state(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
 
 
 uint8_t eps_output_bus_channel_on(uint8_t CH_IDX){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x16;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[5];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 	cmd_buf[4] = CH_IDX;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 5, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 5, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[5];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 5, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
 
 	uint8_t status = rx_buf[4];
 
@@ -260,25 +228,20 @@ uint8_t eps_output_bus_channel_on(uint8_t CH_IDX){
 
 
 uint8_t eps_output_bus_channel_off(uint8_t CH_IDX){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x18;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[5];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 	cmd_buf[4] = CH_IDX;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 5, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 5, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[5];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 5, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
 
 	uint8_t status = rx_buf[4];
 
@@ -286,60 +249,46 @@ uint8_t eps_output_bus_channel_off(uint8_t CH_IDX){
 }
 
 
-void eps_switch_to_nominal_mode(){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
+void eps_switch_to_nominal_mode() {
 	uint8_t CC = 0x30;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[4];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
 }
 
 
-void eps_switch_to_safety_mode(){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
+void eps_switch_to_safety_mode() {
 	uint8_t CC = 0x32;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[4];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
 }
 
 
 void eps_get_sys_status(sys_stat* temp){
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x40;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[4];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[36];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 36, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 36, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 	temp->mode = rx_buf[5];
@@ -365,24 +314,19 @@ void eps_get_sys_status(sys_stat* temp){
 
 
 void eps_get_pdu_piu_overcurrent_fault_state(PDU_PIU_OFS* temp){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x42;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[4];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[78];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 78, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 78, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 	temp->stat_ch_on = rx_buf[6];
@@ -429,24 +373,19 @@ void eps_get_pdu_piu_overcurrent_fault_state(PDU_PIU_OFS* temp){
 //__________________________________________________________________________________________________
 
 void eps_get_pbu_abf_placed_state(PBU_ABF_PS* temp){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x44;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[4];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[8];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 8, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 8, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 	temp->ABF_Placed_0 = rx_buf[6];
@@ -460,24 +399,19 @@ void eps_get_pbu_abf_placed_state(PBU_ABF_PS* temp){
 
 
 void eps_get_pdu_housekeeping_data_raw(PDU_HK_D* temp){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x50;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[4];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[258];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 258, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 258, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 	temp->VOLT_BRDSUP = rx_buf[6];
@@ -535,24 +469,19 @@ void eps_get_pdu_housekeeping_data_raw(PDU_HK_D* temp){
 
 void eps_get_pdu_housekeeping_data_eng(PDU_HK_D* temp) {
 	// We'll be using this function
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x52;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[4];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[258];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 258, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 258, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 	temp->VOLT_BRDSUP = rx_buf[6];
@@ -610,24 +539,19 @@ void eps_get_pdu_housekeeping_data_eng(PDU_HK_D* temp) {
 
 
 void eps_get_pdu_housekeeping_data_running_average(PDU_HK_D* temp){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x54;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[4];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[258];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 258, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 258, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 	temp->VOLT_BRDSUP = rx_buf[6];
@@ -684,24 +608,19 @@ void eps_get_pdu_housekeeping_data_running_average(PDU_HK_D* temp){
 //_____________________________________________________________________________________________________________________________
 
 void eps_get_pbu_housekeeping_data_raw(PBU_HK_D* temp){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x60;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[4];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[84];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 84, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 84, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 	temp->VOLT_BRDSUP = rx_buf[6];
@@ -747,24 +666,19 @@ void eps_get_pbu_housekeeping_data_raw(PBU_HK_D* temp){
 //_______________________________________________________________________________________________
 
 void eps_get_pbu_housekeeping_data_eng(PBU_HK_D* temp){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x62;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[4];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[84];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 84, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 84, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 	temp->VOLT_BRDSUP = rx_buf[6];
@@ -809,24 +723,19 @@ void eps_get_pbu_housekeeping_data_eng(PBU_HK_D* temp){
 //________________________________________________________________________________________
 
 void eps_get_pbu_housekeeping_data_running_average(PBU_HK_D* temp){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x64;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[4];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[84];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 84, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 84, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 	temp->VOLT_BRDSUP = rx_buf[6];
@@ -878,25 +787,19 @@ void eps_get_pbu_housekeeping_data_running_average(PBU_HK_D* temp){
 //_________________________________________________________________________________________________
 
 void eps_get_pcu_housekeeping_data_raw(PCU_HK_D* temp){
-
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x70;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[4];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[72];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 72, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 72, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 	temp->VOLT_BRDSUP = rx_buf[6];
@@ -932,25 +835,19 @@ void eps_get_pcu_housekeeping_data_raw(PCU_HK_D* temp){
 //_______________________________________________________________________________________
 
 void eps_get_pcu_housekeeping_data_eng(PCU_HK_D* temp){
-
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x72;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[4];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[72];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 72, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 72, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 	temp->VOLT_BRDSUP = rx_buf[6];
@@ -985,25 +882,19 @@ void eps_get_pcu_housekeeping_data_eng(PCU_HK_D* temp){
 //_______________________________________________________________________________________
 
 void eps_get_pcu_housekeeping_data_running_average(PCU_HK_D* temp){
-
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x74;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[4];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[72];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 72, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 72, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 	temp->VOLT_BRDSUP = rx_buf[6];
@@ -1039,28 +930,21 @@ void eps_get_pcu_housekeeping_data_running_average(PCU_HK_D* temp){
 //----------------------------------------------------------------------------------------------------
 
 void eps_get_configuration_parameter(GET_CONFIG_PARAM* temp, uint16_t PAR_ID){
-
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x82;
-	uint8_t BID = 0x20;
-
-
 	uint8_t cmd_buf[6];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
 	cmd_buf[4] = PAR_ID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 6, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 6, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[16];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 16, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 16, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 	temp->PAR_ID = rx_buf[6];
@@ -1070,28 +954,22 @@ void eps_get_configuration_parameter(GET_CONFIG_PARAM* temp, uint16_t PAR_ID){
 
 //-----------------------------------------------------------------------------------------------------
 void eps_set_configuration_parameter(SET_CONFIG_PARAM* temp, uint16_t PAR_ID, uint8_t PAR_VAL){
-
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x84;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[14];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[3] = CC;
-	cmd_buf[2] = BID;
+	cmd_buf[2] = EPS_COMMAND_BID;
 
 	cmd_buf[4] = PAR_ID;
 	cmd_buf[6] = PAR_VAL;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 14, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 14, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[16];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 16, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 16, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 	temp->PAR_ID = rx_buf[6];
@@ -1102,27 +980,21 @@ void eps_set_configuration_parameter(SET_CONFIG_PARAM* temp, uint16_t PAR_ID, ui
 //-----------------------------------------------------------------------------------------------------
 
 void eps_reset_configuration_parameter(RESET_CONFIG_PAR* temp, uint16_t PAR_ID){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x86;
-	uint8_t BID = 0x20;
-
-
 	uint8_t cmd_buf[6];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
 	cmd_buf[4] = PAR_ID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 6, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 6, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[16];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 16, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 16, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 	temp->PAR_ID = rx_buf[6];
@@ -1132,28 +1004,23 @@ void eps_reset_configuration_parameter(RESET_CONFIG_PAR* temp, uint16_t PAR_ID){
 //---------------------------------------------------------------------------------------------------------
 
 void eps_reset_configuration(RESET_CONFIGURATION* temp){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x90;
-	uint8_t BID = 0x20;
-
 	uint8_t CONF_KEY = 0x87;
 
 	uint8_t cmd_buf[5];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
 	cmd_buf[4] = CONF_KEY;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 5, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 5, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[16];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 16, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 16, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 
@@ -1162,28 +1029,23 @@ void eps_reset_configuration(RESET_CONFIGURATION* temp){
 //---------------------------------------------------------------------------------------------------
 
 void eps_load_configuration(LOAD_CONFIGURATION* temp){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x92;
-	uint8_t BID = 0x20;
-
 	uint8_t CONF_KEY = 0xA7;
 
 	uint8_t cmd_buf[5];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
 	cmd_buf[4] = CONF_KEY;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 5, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 5, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[5];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 5, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 
@@ -1192,30 +1054,25 @@ void eps_load_configuration(LOAD_CONFIGURATION* temp){
 //---------------------------------------------------------------------------------------------
 
 void eps_save_configuration(SAVE_CONFIGURATION* temp){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0x94;
-	uint8_t BID = 0x20;
-
 	uint8_t CONF_KEY = 0xA7;
 	uint16_t CHECKSUM = 0;
 
 	uint8_t cmd_buf[7];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
 	cmd_buf[4] = CONF_KEY;
 	cmd_buf[5] = CHECKSUM;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 7, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 7, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[5];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 5, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 
@@ -1224,24 +1081,19 @@ void eps_save_configuration(SAVE_CONFIGURATION* temp){
 //------------------------------------------------------------------------------------------------------------------
 
 void eps_get_piu_housekeeping_data_raw(GET_PIU_HK* temp){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0xA0;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[4];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[274];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 274, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 274, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 
@@ -1330,24 +1182,19 @@ void eps_get_piu_housekeeping_data_raw(GET_PIU_HK* temp){
 //-----------------------------------------------------------------------------------------------------
 
 void eps_get_piu_housekeeping_data_eng(GET_PIU_HK* temp){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0xA2;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[4];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[274];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 274, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 274, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 
@@ -1436,24 +1283,19 @@ void eps_get_piu_housekeeping_data_eng(GET_PIU_HK* temp){
 //------------------------------------------------------------------------------------------
 
 void eps_get_piu_housekeeping_data_running_average(GET_PIU_HK* temp){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0xA4;
-	uint8_t BID = 0x20;
-
 	uint8_t cmd_buf[4];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[274];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 274, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 274, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 
@@ -1542,28 +1384,24 @@ void eps_get_piu_housekeeping_data_running_average(GET_PIU_HK* temp){
 //--------------------------------------------------------------------------------------------------
 
 void eps_correct_time(CORRECT_TIME_S* temp, int32_t time_correction){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0xC4;
-	uint8_t BID = 0x20;
 	//Time correction in unix time (positive numbers added to time, negative values subtracted)
 	int32_t CORRECTION = time_correction;
 
 	uint8_t cmd_buf[8];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
 	cmd_buf[4] = CORRECTION;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 8, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 8, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[5];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 5, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 
@@ -1572,28 +1410,24 @@ void eps_correct_time(CORRECT_TIME_S* temp, int32_t time_correction){
 //------------------------------------------------------------------------------------------------------
 
 void eps_zero_reset_cause_counters(ZERO_RESET_CAUSE_COUNTERS_S* temp){
-
-	uint8_t STID = 0x1A;
-	uint8_t IVID = 0x07;
 	uint8_t CC = 0xC6;
-	uint8_t BID = 0x20;
 	//Time correction in unix time (positive numbers added to time, negative values subtracted)
 	int32_t ZERO_KEY = 0xA7;
 
 	uint8_t cmd_buf[5];
 
-	cmd_buf[0] = STID;
-	cmd_buf[1] = IVID;
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
-	cmd_buf[3] = BID;
+	cmd_buf[3] = EPS_COMMAND_BID;
 
 	cmd_buf[4] = ZERO_KEY;
 
-	HAL_I2C_Master_Transmit(&hi2c1, PWR_SYS_ADDR, cmd_buf, 5, HAL_MAX_DELAY);
+	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 5, HAL_MAX_DELAY);
 
 	uint8_t rx_buf[5];
 
-	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 5, HAL_MAX_DELAY);
+	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
 
 	temp->status = rx_buf[4];
 
