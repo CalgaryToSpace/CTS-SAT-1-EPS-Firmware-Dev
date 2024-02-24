@@ -11,15 +11,12 @@
 
 #include "main.h"
 
-#include <stdio.h>// this is the C standard I/O library
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
 
-
-
-//Data type structs for select functions
-
+// Data type structs for select functions
 
 typedef enum {
 	EPS_CHANNEL_VBATT_STACK,//CH0
@@ -39,27 +36,23 @@ typedef enum {
 	EPS_CHANNEL_3V3_CH14_UNUSED,//CH14
 	EPS_CHANNEL_3V3_CH15_UNUSED,//CH15
 	EPS_CHANNEL_28V6_CH16_UNUSED//CH16
-}EPS_CHANNEL_t;
+} EPS_CHANNEL_t;
 
 
 void eps_debug_print_channel_stats_once(EPS_CHANNEL_t eps_channel);
-// implement this function
 
 
 
+// Typedef structs
 
-//Typedef structs
-
-
-
-typedef struct voltage_current_power_datatype{
+typedef struct voltage_current_power_datatype {
 
 	int16_t vipd_array[6]; // 6 bytes in this array. 2 bytes for voltage, 2 bytes for current, and 2 bytes for power.
 
 } VIPD;
 
 
-typedef struct battery_pack_datatype{
+typedef struct battery_pack_datatype {
 
 	VIPD VIP_BP_Input; //To access this do VIP_BP_Input.vipd_array[i]
 	uint16_t STAT_BP;
@@ -73,7 +66,7 @@ typedef struct battery_pack_datatype{
 
 } BPD;
 
-typedef struct conditioning_channel_datatype{
+typedef struct conditioning_channel_datatype {
 
 	VIPD VIP_CC_OUTPUT; //To access this do VIP_BP_Input.vipd_array[i]
 	uint16_t VOLT_IN_MPPT;
@@ -86,7 +79,7 @@ typedef struct conditioning_channel_datatype{
 
 
 
-typedef struct pwr_sys_stat{
+typedef struct pwr_sys_stat {
 
 	uint8_t status;
 	uint8_t mode;
@@ -109,9 +102,7 @@ typedef struct pwr_sys_stat{
 	uint8_t unix_second;
 } sys_stat;
 
-//Writing this comment to check
-
-typedef struct PDU_PIU_Overcurrent_Fault_State{
+typedef struct PDU_PIU_Overcurrent_Fault_State {
 
 	uint8_t status;
 	uint16_t stat_ch_on;
@@ -154,7 +145,7 @@ typedef struct PDU_PIU_Overcurrent_Fault_State{
 
 } PDU_PIU_OFS;
 
-typedef struct PBU_ABF_Placed_State{
+typedef struct PBU_ABF_Placed_State {
 
 	uint8_t status;
 
@@ -163,7 +154,7 @@ typedef struct PBU_ABF_Placed_State{
 
 }  PBU_ABF_PS;
 
-typedef struct PDU_Housekeeping_Data{ // Using this for the first debug function implementation
+typedef struct PDU_Housekeeping_Data {
 
 	uint8_t status;
 
@@ -176,7 +167,6 @@ typedef struct PDU_Housekeeping_Data{ // Using this for the first debug function
 	uint16_t STAT_CH_EXT_ON;
 	uint16_t STAT_CH_OCF;
 	uint16_t STAT_CH_EXT_OCF;
-
 
 	VIPD VIP_VD0;
 	VIPD VIP_VD1;
@@ -219,10 +209,9 @@ typedef struct PDU_Housekeeping_Data{ // Using this for the first debug function
 	VIPD VIP_CH30;
 	VIPD VIP_CH31;
 
+} PDU_HK_D;
 
-}PDU_HK_D;
-
-typedef struct PBU_Housekeeping_Data{
+typedef struct PBU_Housekeeping_Data {
 	uint8_t status;
 	uint16_t VOLT_BRDSUP;
 	uint16_t TEMP_MCU;
@@ -232,10 +221,9 @@ typedef struct PBU_Housekeeping_Data{
 	BPD BP1;
 	BPD BP2;
 	BPD BP3;
-}PBU_HK_D;
+} PBU_HK_D;
 
-typedef struct PCU_HOUSEKEEPING_DATA{
-
+typedef struct PCU_HOUSEKEEPING_DATA {
 	uint8_t status;
 	uint16_t VOLT_BRDSUP;
 	uint16_t TEMP_MCU;
@@ -245,70 +233,53 @@ typedef struct PCU_HOUSEKEEPING_DATA{
 	CCD CC2;
 	CCD CC3;
 	CCD CC4;
+} PCU_HK_D;
 
-}PCU_HK_D;
 
-
-typedef struct GET_CONFIGURATION_PARAMETER{
-
+typedef struct GET_CONFIGURATION_PARAMETER {
 	uint8_t status;
 	uint16_t PAR_ID;
 	uint8_t PAR_VAL;
-
-}GET_CONFIG_PARAM;
+} GET_CONFIG_PARAM;
 
 
 typedef struct SET_CONFIGURATION_PARAMETER{
-
 	uint8_t status;
 	uint16_t PAR_ID;
 	uint8_t PAR_VAL;
+} SET_CONFIG_PARAM;
 
-}SET_CONFIG_PARAM;
 
-
-typedef struct RESET_CONFIGURATION_PARAMETER{
-
+typedef struct RESET_CONFIGURATION_PARAMETER {
 	uint8_t status;
 	uint8_t PAR_ID;
 	uint8_t PAR_VAL;
+} RESET_CONFIG_PAR;
 
-}RESET_CONFIG_PAR;
 
-
-typedef struct RESET_CONFIGURATION{
-
+typedef struct RESET_CONFIGURATION {
 	uint8_t status;
+} RESET_CONFIGURATION;
 
-}RESET_CONFIGURATION;
-
-
-typedef struct LOAD_CONFIGURATION{
-
+typedef struct LOAD_CONFIGURATION {
 	uint8_t status;
+} LOAD_CONFIGURATION;
 
-}LOAD_CONFIGURATION;
 
-
-typedef struct SAVE_CONFIGURATION{
-
+typedef struct SAVE_CONFIGURATION {
 	uint8_t status;
-
-}SAVE_CONFIGURATION;
-
+} SAVE_CONFIGURATION;
 
 
-typedef struct conditioning_channel_short_datatype{
 
+typedef struct conditioning_channel_short_datatype {
 	uint16_t VOLT_IN_MPPT;
 	uint16_t CURR_IN_MPPT;
 	uint16_t VOLT_OU_MPPT;
 	uint16_t CURR_OU_MPPT;
-
 } CCSD;
 
-typedef struct GET_PIU_HK{
-
+typedef struct GET_PIU_HK {
 	uint8_t status;
 	uint16_t VOLT_BRDSUP;
 	uint16_t TEMP;
@@ -370,26 +341,18 @@ typedef struct GET_PIU_HK{
 	VIPD VIP_CH29;
 	VIPD VIP_CH30;
 	VIPD VIP_CH31;
+} GET_PIU_HK;
 
-}GET_PIU_HK;
 
-
-typedef struct CORRECT_TIME_S{
-
+typedef struct CORRECT_TIME_S {
 	uint8_t status;
-
 } CORRECT_TIME_S;
 
 
 
-typedef struct ZERO_RESET_CAUSE_COUNTERS_S{
-
+typedef struct ZERO_RESET_CAUSE_COUNTERS_S {
 	uint8_t status;
-
 } ZERO_RESET_CAUSE_COUNTERS_S;
-
-
-
 
 
 void eps_system_reset();

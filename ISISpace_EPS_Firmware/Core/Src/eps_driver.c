@@ -11,22 +11,11 @@
 #define PWR_SYS_ADDR 0x30 // if this macro doesn't work, then just define it as a uint8_t below in another section
 
 uint16_t CH_VIP[6];
-char newline[2] = "\n";
 
-
-
-
-//EPS test functions
-
-
-
-void eps_debug_print_channel_stats_once(EPS_CHANNEL_t eps_channel){ // eps_channel is now an enum,
-																	// this is not necessary
-	//We are testing the measurements for the first three EPS channels right now
-
+void eps_debug_print_channel_stats_once(EPS_CHANNEL_t eps_channel) {
 	PDU_HK_D* EPS_data_received;
 
-	uint16_t CH_VIP[6]; //channel voltage, current and power measurement buffer.
+	uint16_t CH_VIP[6]; // channel voltage, current, and power measurement buffer
 
 	eps_get_pdu_housekeeping_data_eng(EPS_data_received);
 
@@ -141,7 +130,7 @@ uint8_t eps_cancel_oper(){
 }
 
 
-void eps_watchdog(){
+void eps_watchdog() {
 
 	uint8_t STID = 0x1A;
 	uint8_t IVID = 0x07;
@@ -159,7 +148,7 @@ void eps_watchdog(){
 }
 
 
-uint8_t eps_output_bus_group_on(uint16_t CH_BF,  uint16_t CH_EXT_BF){
+uint8_t eps_output_bus_group_on(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
 
 	uint8_t STID = 0x1A;
 	uint8_t IVID = 0x07;
@@ -187,7 +176,7 @@ uint8_t eps_output_bus_group_on(uint16_t CH_BF,  uint16_t CH_EXT_BF){
 }
 
 
-uint8_t eps_output_bus_group_off(uint16_t CH_BF,  uint16_t CH_EXT_BF){
+uint8_t eps_output_bus_group_off(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
 
 	uint8_t STID = 0x1A;
 	uint8_t IVID = 0x07;
@@ -215,7 +204,7 @@ uint8_t eps_output_bus_group_off(uint16_t CH_BF,  uint16_t CH_EXT_BF){
 }
 
 
-uint8_t eps_output_bus_group_state(uint16_t CH_BF,  uint16_t CH_EXT_BF){
+uint8_t eps_output_bus_group_state(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
 
 	uint8_t STID = 0x1A;
 	uint8_t IVID = 0x07;
@@ -544,7 +533,8 @@ void eps_get_pdu_housekeeping_data_raw(PDU_HK_D* temp){
 
 //_________________________________________________________________________________________________
 
-void eps_get_pdu_housekeeping_data_eng(PDU_HK_D* temp){  					// We'll be using this function
+void eps_get_pdu_housekeeping_data_eng(PDU_HK_D* temp) {
+	// We'll be using this function
 
 	uint8_t STID = 0x1A;
 	uint8_t IVID = 0x07;
@@ -564,7 +554,7 @@ void eps_get_pdu_housekeeping_data_eng(PDU_HK_D* temp){  					// We'll be using 
 
 	HAL_I2C_Master_Receive(&hi2c1, PWR_SYS_ADDR, rx_buf, 258, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];					// remember that temp is a struct object
+	temp->status = rx_buf[4];
 	temp->VOLT_BRDSUP = rx_buf[6];
 	temp->TEMP_MCU = rx_buf[12];
 	temp->VIP_INPUT.vipd_array[0] = rx_buf[16];
