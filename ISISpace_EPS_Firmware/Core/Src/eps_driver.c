@@ -51,9 +51,9 @@ void eps_debug_get_and_print_channel_stats(EPS_CHANNEL_t eps_channel) {
 void eps_debug_uart_print_sys_stat(eps_result_sys_stat_t* sys_stat) {
 	char msg1[365];
 	sprintf(
-		msg1,
-		"System status: %d, Mode: %d, Configuration: %d, Reset cause: %d, Uptime: %d, Error: %d, RC count pwron: %d, RC count wdg: %d, RC count cmd: %d, RC count mcu: %d, RC count emlopo: %d, Prevcmd elapsed: %d, Unix time: %d, Unix year: %d, Unix month: %d, Unix day: %d, Unix hour: %d, Unix minute: %d, Unix second: %d\n",
-		sys_stat->status, sys_stat->mode, sys_stat->conf, sys_stat->reset_cause, sys_stat->uptime, sys_stat->error, sys_stat->rc_cnt_pwron, sys_stat->rc_cnt_wdg, sys_stat->rc_cnt_cmd, sys_stat->rc_cnt_mcu, sys_stat->rc_cnt_emlopo, sys_stat->prevcmd_elapsed, sys_stat->unix_time, sys_stat->unix_year, sys_stat->unix_month, sys_stat->unix_day, sys_stat->unix_hour, sys_stat->unix_minute, sys_stat->unix_second
+	    msg1,
+	    "System status: %d, Mode: %d, Configuration: %d, Reset cause: %d, Uptime: %lu, Error: %d, RC count pwron: %u, RC count wdg: %d, RC count cmd: %d, RC count mcu: %d, RC count emlopo: %d, Prevcmd elapsed: %d, Unix time: %lu, Unix year: %d, Unix month: %d, Unix day: %d, Unix hour: %d, Unix minute: %d, Unix second: %d\n",
+	    sys_stat->status, sys_stat->mode, sys_stat->conf, sys_stat->reset_cause, sys_stat->uptime, sys_stat->error, sys_stat->rc_cnt_pwron, sys_stat->rc_cnt_wdg, sys_stat->rc_cnt_cmd, sys_stat->rc_cnt_mcu, sys_stat->rc_cnt_emlopo, sys_stat->prevcmd_elapsed, sys_stat->unix_time, sys_stat->unix_year, sys_stat->unix_month, sys_stat->unix_day, sys_stat->unix_hour, sys_stat->unix_minute, sys_stat->unix_second
 	);
 
 	HAL_UART_Transmit(&hlpuart1, (uint8_t*)msg1, strlen((char*)msg1), HAL_MAX_DELAY);

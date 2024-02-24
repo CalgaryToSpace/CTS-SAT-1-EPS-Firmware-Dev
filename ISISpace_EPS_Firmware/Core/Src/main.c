@@ -142,6 +142,9 @@ int main(void)
     // dump EPS system status
     debug_uart_print_str("Start of while loop\n");
 
+    // blink LED
+    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
+
     eps_result_sys_stat_t sys_stat;
 
     debug_uart_print_str("Fetching system status info...\n");
