@@ -125,6 +125,8 @@ int main(void)
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
+  debug_uart_print_str("Done HAL init functions.\n");
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -135,14 +137,26 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
+    // dump EPS system status
+    debug_uart_print_str("Start of while loop\n");
 
+    eps_result_sys_stat_t sys_stat;
 
+    debug_uart_print_str("Fetching system status info...\n");
+    eps_get_sys_status(&sys_stat);
 
-	  // To Begin, try to figure out a way to use one of the functions to test for a way to get the system status of the EPS.
-	  // Hint: Use UART to print something on a terminal window.
+    debug_uart_print_str("UART printing system status info...\n");
+    eps_debug_uart_print_sys_stat(&sys_stat);
 
+    debug_uart_print_str("Fetching and printing CH0 info...\n");
+    eps_debug_get_and_print_channel_stats(0);
 
+    debug_uart_print_str("Fetching and printing CH1 info...\n");
+    eps_debug_get_and_print_channel_stats(1);
 
+    debug_uart_print_str("End of while loop\n\n");
+
+    HAL_Delay(3000);
   }
   /* USER CODE END 3 */
 }

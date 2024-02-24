@@ -14,50 +14,49 @@ const uint8_t EPS_COMMAND_STID = 0x1A; // "System Type Identifier (STID)" (Softw
 const uint8_t EPS_COMMAND_IVID = 0x07; // "Interface Version Identifier (IVID)" (Software ICD, page 18)
 const uint8_t EPS_COMMAND_BID = 0x20; // "Board Identifier (BID)" (Software ICD, page 20)
 
-void eps_debug_print_channel_stats_once(EPS_CHANNEL_t eps_channel) {
+void eps_debug_get_and_print_channel_stats(EPS_CHANNEL_t eps_channel) {
 	PDU_HK_D* EPS_data_received;
 
-	uint16_t CH_VIP[6]; // channel voltage, current, and power measurement buffer
+	VIPD_eng_t ch_vip_eng;
 
 	eps_get_pdu_housekeeping_data_eng(EPS_data_received);
 
-	CH_VIP[0] = EPS_data_received->VIP_CH00.vipd_array[0]; //Voltage measurement in 2 bytes
-	CH_VIP[2] = EPS_data_received->VIP_CH00.vipd_array[2]; //Current measurement in 2 bytes
-	CH_VIP[4] = EPS_data_received->VIP_CH00.vipd_array[4]; //Power measurement in 2 bytes
+	if (eps_channel == 0) {
+		ch_vip_eng.voltage_mV = EPS_data_received->VIP_CH00.vipd_array[0]; //Voltage measurement in 2 bytes
+		ch_vip_eng.current_mA = EPS_data_received->VIP_CH00.vipd_array[2]; //Current measurement in 2 bytes
+		ch_vip_eng.power_cW = EPS_data_received->VIP_CH00.vipd_array[4]; //Power measurement in 2 bytes
+	}
+	else if (eps_channel == 1) {
+		ch_vip_eng.voltage_mV = EPS_data_received->VIP_CH01.vipd_array[0]; //Voltage measurement in 2 bytes
+		ch_vip_eng.current_mA = EPS_data_received->VIP_CH01.vipd_array[2]; //Current measurement in 2 bytes
+		ch_vip_eng.power_cW = EPS_data_received->VIP_CH01.vipd_array[4]; //Power measurement in 2 bytes
+	}
+	else {
+		// FIXME: Placeholder. Implement the result in a refactor.
+		ch_vip_eng.voltage_mV = ch_vip_eng.current_mA = ch_vip_eng.power_cW = 42;
+	}
 
-	// at this point we have the Channel 0 voltage, current and power readings stored in CH_VIP.
-
-	char msg1[100];
+	char msg1[250];
 	sprintf(
 		msg1,
-		"Channel 0: V=%d, I=%d, P=%d, Ch1: V=%d, I=%d, P=%d, Ch2: V=%d, I=%d, P=%d\n",
-	)
-	HAL_UART_Transmit(&hlpuart1, (uint8_t*)CH_VIP, 6, HAL_MAX_DELAY);
-	HAL_UART_Transmit(&hlpuart1, (uint8_t*)newline, strlen((char*)newline), HAL_MAX_DELAY);
-	//HAL_Delay(1000);
+		"Channel %d: V=%d mV, I=%d mA, P=%d cW\n",
+		eps_channel,
+		ch_vip_eng.voltage_mV,
+		ch_vip_eng.current_mA,
+		ch_vip_eng.power_cW
+	);
+	debug_uart_print_str(msg1);
+}
 
+void eps_debug_uart_print_sys_stat(eps_result_sys_stat_t* sys_stat) {
+	char msg1[365];
+	sprintf(
+		msg1,
+		"System status: %d, Mode: %d, Configuration: %d, Reset cause: %d, Uptime: %d, Error: %d, RC count pwron: %d, RC count wdg: %d, RC count cmd: %d, RC count mcu: %d, RC count emlopo: %d, Prevcmd elapsed: %d, Unix time: %d, Unix year: %d, Unix month: %d, Unix day: %d, Unix hour: %d, Unix minute: %d, Unix second: %d\n",
+		sys_stat->status, sys_stat->mode, sys_stat->conf, sys_stat->reset_cause, sys_stat->uptime, sys_stat->error, sys_stat->rc_cnt_pwron, sys_stat->rc_cnt_wdg, sys_stat->rc_cnt_cmd, sys_stat->rc_cnt_mcu, sys_stat->rc_cnt_emlopo, sys_stat->prevcmd_elapsed, sys_stat->unix_time, sys_stat->unix_year, sys_stat->unix_month, sys_stat->unix_day, sys_stat->unix_hour, sys_stat->unix_minute, sys_stat->unix_second
+	);
 
-	CH_VIP[0] = EPS_data_received->VIP_CH01.vipd_array[0]; //Voltage measurement in 2 bytes
-	CH_VIP[2] = EPS_data_received->VIP_CH01.vipd_array[2]; //Current measurement in 2 bytes
-	CH_VIP[4] = EPS_data_received->VIP_CH01.vipd_array[4]; //Power measurement in 2 bytes
-
-	// at this point we have the Channel 1 voltage, current and power readings stored in CH_VIP.
-
-	HAL_UART_Transmit(&hlpuart1, (uint8_t*)CH_VIP, 6, HAL_MAX_DELAY);
-	HAL_UART_Transmit(&hlpuart1, (uint8_t*)newline, strlen((char*)newline), HAL_MAX_DELAY);
-	//HAL_Delay(1000);
-
-
-	CH_VIP[0] = EPS_data_received->VIP_CH02.vipd_array[0]; //Voltage measurement in 2 bytes
-	CH_VIP[2] = EPS_data_received->VIP_CH02.vipd_array[2]; //Current measurement in 2 bytes
-	CH_VIP[4] = EPS_data_received->VIP_CH02.vipd_array[4]; //Power measurement in 2 bytes
-
-	// at this point we have the Channel 1 voltage, current and power readings stored in CH_VIP.
-
-	HAL_UART_Transmit(&hlpuart1, (uint8_t*)CH_VIP, 6, HAL_MAX_DELAY);
-	HAL_UART_Transmit(&hlpuart1, (uint8_t*)newline, strlen((char*)newline), HAL_MAX_DELAY);
-	HAL_Delay(1000);
-
+	HAL_UART_Transmit(&hlpuart1, (uint8_t*)msg1, strlen((char*)msg1), HAL_MAX_DELAY);
 }
 
 
@@ -205,7 +204,7 @@ uint8_t eps_output_bus_group_state(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
 }
 
 
-uint8_t eps_output_bus_channel_on(uint8_t CH_IDX){
+uint8_t eps_output_bus_channel_on(uint8_t CH_IDX) {
 	uint8_t CC = 0x16;
 	uint8_t cmd_buf[5];
 
@@ -227,7 +226,7 @@ uint8_t eps_output_bus_channel_on(uint8_t CH_IDX){
 }
 
 
-uint8_t eps_output_bus_channel_off(uint8_t CH_IDX){
+uint8_t eps_output_bus_channel_off(uint8_t CH_IDX) {
 	uint8_t CC = 0x18;
 	uint8_t cmd_buf[5];
 
@@ -275,7 +274,7 @@ void eps_switch_to_safety_mode() {
 }
 
 
-void eps_get_sys_status(sys_stat* temp){
+void eps_get_sys_status(eps_result_sys_stat_t* result_dest) {
 	uint8_t CC = 0x40;
 	uint8_t cmd_buf[4];
 
@@ -290,30 +289,30 @@ void eps_get_sys_status(sys_stat* temp){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 36, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
-	temp->mode = rx_buf[5];
-	temp->conf = rx_buf[6];
-	temp->reset_cause = rx_buf[7];
-	temp->uptime = rx_buf[8];
-	temp->error = rx_buf[12];
-	temp->rc_cnt_pwron = rx_buf[14];
-	temp->rc_cnt_wdg = rx_buf[16];
-	temp->rc_cnt_cmd = rx_buf[18];
-	temp->rc_cnt_mcu = rx_buf[20];
-	temp->rc_cnt_emlopo = rx_buf[22];
-	temp->prevcmd_elapsed = rx_buf[24];
-	temp->unix_time = rx_buf[26];
-	temp->unix_year = rx_buf[30];
-	temp->unix_month = rx_buf[31];
-	temp->unix_day = rx_buf[32];
-	temp->unix_hour = rx_buf[33];
-	temp->unix_minute = rx_buf[34];
-	temp->unix_second = rx_buf[35];
+	result_dest->status = rx_buf[4];
+	result_dest->mode = rx_buf[5];
+	result_dest->conf = rx_buf[6];
+	result_dest->reset_cause = rx_buf[7];
+	result_dest->uptime = rx_buf[8];
+	result_dest->error = rx_buf[12];
+	result_dest->rc_cnt_pwron = rx_buf[14];
+	result_dest->rc_cnt_wdg = rx_buf[16];
+	result_dest->rc_cnt_cmd = rx_buf[18];
+	result_dest->rc_cnt_mcu = rx_buf[20];
+	result_dest->rc_cnt_emlopo = rx_buf[22];
+	result_dest->prevcmd_elapsed = rx_buf[24];
+	result_dest->unix_time = rx_buf[26];
+	result_dest->unix_year = rx_buf[30];
+	result_dest->unix_month = rx_buf[31];
+	result_dest->unix_day = rx_buf[32];
+	result_dest->unix_hour = rx_buf[33];
+	result_dest->unix_minute = rx_buf[34];
+	result_dest->unix_second = rx_buf[35];
 
 }
 
 
-void eps_get_pdu_piu_overcurrent_fault_state(PDU_PIU_OFS* temp){
+void eps_get_pdu_piu_overcurrent_fault_state(PDU_PIU_OFS* result_dest) {
 	uint8_t CC = 0x42;
 	uint8_t cmd_buf[4];
 
@@ -328,51 +327,51 @@ void eps_get_pdu_piu_overcurrent_fault_state(PDU_PIU_OFS* temp){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 78, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
-	temp->stat_ch_on = rx_buf[6];
-	temp->stat_ch_ext_on = rx_buf[8];
-	temp->stat_ch_ocf = rx_buf[10];
-	temp->stat_ch_ext_ocf = rx_buf[12];
+	result_dest->status = rx_buf[4];
+	result_dest->stat_ch_on = rx_buf[6];
+	result_dest->stat_ch_ext_on = rx_buf[8];
+	result_dest->stat_ch_ocf = rx_buf[10];
+	result_dest->stat_ch_ext_ocf = rx_buf[12];
 
-	temp->ocf_cnt_ch00 = rx_buf[14];
-	temp->ocf_cnt_ch01 = rx_buf[16];
-	temp->ocf_cnt_ch02 = rx_buf[18];
-	temp->ocf_cnt_ch03 = rx_buf[20];
-	temp->ocf_cnt_ch04 = rx_buf[22];
-	temp->ocf_cnt_ch05 = rx_buf[24];
-	temp->ocf_cnt_ch06 = rx_buf[26];
-	temp->ocf_cnt_ch07 = rx_buf[28];
-	temp->ocf_cnt_ch08 = rx_buf[30];
-	temp->ocf_cnt_ch09 = rx_buf[32];
-	temp->ocf_cnt_ch10 = rx_buf[34];
-	temp->ocf_cnt_ch11 = rx_buf[36];
-	temp->ocf_cnt_ch12 = rx_buf[38];
-	temp->ocf_cnt_ch13 = rx_buf[40];
-	temp->ocf_cnt_ch14 = rx_buf[42];
-	temp->ocf_cnt_ch15 = rx_buf[44];
-	temp->ocf_cnt_ch16 = rx_buf[46];
-	temp->ocf_cnt_ch17 = rx_buf[48];
-	temp->ocf_cnt_ch18 = rx_buf[50];
-	temp->ocf_cnt_ch19 = rx_buf[52];
-	temp->ocf_cnt_ch20 = rx_buf[54];
-	temp->ocf_cnt_ch21 = rx_buf[56];
-	temp->ocf_cnt_ch22 = rx_buf[58];
-	temp->ocf_cnt_ch23 = rx_buf[60];
-	temp->ocf_cnt_ch24 = rx_buf[62];
-	temp->ocf_cnt_ch25 = rx_buf[64];
-	temp->ocf_cnt_ch26 = rx_buf[66];
-	temp->ocf_cnt_ch27 = rx_buf[68];
-	temp->ocf_cnt_ch28 = rx_buf[70];
-	temp->ocf_cnt_ch29 = rx_buf[72];
-	temp->ocf_cnt_ch30 = rx_buf[74];
-	temp->ocf_cnt_ch31 = rx_buf[76];
+	result_dest->ocf_cnt_ch00 = rx_buf[14];
+	result_dest->ocf_cnt_ch01 = rx_buf[16];
+	result_dest->ocf_cnt_ch02 = rx_buf[18];
+	result_dest->ocf_cnt_ch03 = rx_buf[20];
+	result_dest->ocf_cnt_ch04 = rx_buf[22];
+	result_dest->ocf_cnt_ch05 = rx_buf[24];
+	result_dest->ocf_cnt_ch06 = rx_buf[26];
+	result_dest->ocf_cnt_ch07 = rx_buf[28];
+	result_dest->ocf_cnt_ch08 = rx_buf[30];
+	result_dest->ocf_cnt_ch09 = rx_buf[32];
+	result_dest->ocf_cnt_ch10 = rx_buf[34];
+	result_dest->ocf_cnt_ch11 = rx_buf[36];
+	result_dest->ocf_cnt_ch12 = rx_buf[38];
+	result_dest->ocf_cnt_ch13 = rx_buf[40];
+	result_dest->ocf_cnt_ch14 = rx_buf[42];
+	result_dest->ocf_cnt_ch15 = rx_buf[44];
+	result_dest->ocf_cnt_ch16 = rx_buf[46];
+	result_dest->ocf_cnt_ch17 = rx_buf[48];
+	result_dest->ocf_cnt_ch18 = rx_buf[50];
+	result_dest->ocf_cnt_ch19 = rx_buf[52];
+	result_dest->ocf_cnt_ch20 = rx_buf[54];
+	result_dest->ocf_cnt_ch21 = rx_buf[56];
+	result_dest->ocf_cnt_ch22 = rx_buf[58];
+	result_dest->ocf_cnt_ch23 = rx_buf[60];
+	result_dest->ocf_cnt_ch24 = rx_buf[62];
+	result_dest->ocf_cnt_ch25 = rx_buf[64];
+	result_dest->ocf_cnt_ch26 = rx_buf[66];
+	result_dest->ocf_cnt_ch27 = rx_buf[68];
+	result_dest->ocf_cnt_ch28 = rx_buf[70];
+	result_dest->ocf_cnt_ch29 = rx_buf[72];
+	result_dest->ocf_cnt_ch30 = rx_buf[74];
+	result_dest->ocf_cnt_ch31 = rx_buf[76];
 
 }
 
 
 //__________________________________________________________________________________________________
 
-void eps_get_pbu_abf_placed_state(PBU_ABF_PS* temp){
+void eps_get_pbu_abf_placed_state(PBU_ABF_PS* result_dest) {
 	uint8_t CC = 0x44;
 	uint8_t cmd_buf[4];
 
@@ -387,9 +386,9 @@ void eps_get_pbu_abf_placed_state(PBU_ABF_PS* temp){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 8, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
-	temp->ABF_Placed_0 = rx_buf[6];
-	temp->ABF_Placed_1 = rx_buf[7];
+	result_dest->status = rx_buf[4];
+	result_dest->ABF_Placed_0 = rx_buf[6];
+	result_dest->ABF_Placed_1 = rx_buf[7];
 
 
 }
@@ -398,7 +397,7 @@ void eps_get_pbu_abf_placed_state(PBU_ABF_PS* temp){
 
 
 
-void eps_get_pdu_housekeeping_data_raw(PDU_HK_D* temp){
+void eps_get_pdu_housekeeping_data_raw(PDU_HK_D* result_dest) {
 	uint8_t CC = 0x50;
 	uint8_t cmd_buf[4];
 
@@ -413,62 +412,61 @@ void eps_get_pdu_housekeeping_data_raw(PDU_HK_D* temp){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 258, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
-	temp->VOLT_BRDSUP = rx_buf[6];
-	temp->TEMP_MCU = rx_buf[8];
-	temp->VIP_INPUT.vipd_array[0] = rx_buf[10];
-	temp->STAT_CH_ON = rx_buf[16];
-	temp->STAT_CH_EXT_ON = rx_buf[18];
-	temp->STAT_CH_OCF = rx_buf[20];
-	temp->STAT_CH_EXT_OCF = rx_buf[22];
+	result_dest->status = rx_buf[4];
+	result_dest->VOLT_BRDSUP = rx_buf[6];
+	result_dest->TEMP_MCU = rx_buf[8];
+	result_dest->VIP_INPUT.vipd_array[0] = rx_buf[10];
+	result_dest->STAT_CH_ON = rx_buf[16];
+	result_dest->STAT_CH_EXT_ON = rx_buf[18];
+	result_dest->STAT_CH_OCF = rx_buf[20];
+	result_dest->STAT_CH_EXT_OCF = rx_buf[22];
 
-	temp->VIP_VD0.vipd_array[0] = rx_buf[24];
-	temp->VIP_VD1.vipd_array[0] = rx_buf[30];
-	temp->VIP_VD2.vipd_array[0] = rx_buf[36];
-	temp->VIP_VD3.vipd_array[0] = rx_buf[42];
-	temp->VIP_VD4.vipd_array[0] = rx_buf[48];
-	temp->VIP_VD5.vipd_array[0] = rx_buf[54];
-	temp->VIP_VD6.vipd_array[0] = rx_buf[60];
+	result_dest->VIP_VD0.vipd_array[0] = rx_buf[24];
+	result_dest->VIP_VD1.vipd_array[0] = rx_buf[30];
+	result_dest->VIP_VD2.vipd_array[0] = rx_buf[36];
+	result_dest->VIP_VD3.vipd_array[0] = rx_buf[42];
+	result_dest->VIP_VD4.vipd_array[0] = rx_buf[48];
+	result_dest->VIP_VD5.vipd_array[0] = rx_buf[54];
+	result_dest->VIP_VD6.vipd_array[0] = rx_buf[60];
 
-	temp->VIP_CH00.vipd_array[0] = rx_buf[66];
-	temp->VIP_CH01.vipd_array[0] = rx_buf[72];
-	temp->VIP_CH02.vipd_array[0] = rx_buf[78];
-	temp->VIP_CH03.vipd_array[0] = rx_buf[84];
-	temp->VIP_CH04.vipd_array[0] = rx_buf[90];
-	temp->VIP_CH05.vipd_array[0] = rx_buf[96];
-	temp->VIP_CH06.vipd_array[0] = rx_buf[102];
-	temp->VIP_CH07.vipd_array[0] = rx_buf[108];
-	temp->VIP_CH08.vipd_array[0] = rx_buf[114];
-	temp->VIP_CH09.vipd_array[0] = rx_buf[120];
-	temp->VIP_CH10.vipd_array[0] = rx_buf[126];
-	temp->VIP_CH11.vipd_array[0] = rx_buf[132];
-	temp->VIP_CH12.vipd_array[0] = rx_buf[138];
-	temp->VIP_CH13.vipd_array[0] = rx_buf[144];
-	temp->VIP_CH14.vipd_array[0] = rx_buf[150];
-	temp->VIP_CH15.vipd_array[0] = rx_buf[156];
-	temp->VIP_CH16.vipd_array[0] = rx_buf[162];
-	temp->VIP_CH17.vipd_array[0] = rx_buf[168];
-	temp->VIP_CH18.vipd_array[0] = rx_buf[174];
-	temp->VIP_CH19.vipd_array[0] = rx_buf[180];
-	temp->VIP_CH20.vipd_array[0] = rx_buf[186];
-	temp->VIP_CH21.vipd_array[0] = rx_buf[192];
-	temp->VIP_CH22.vipd_array[0] = rx_buf[198];
-	temp->VIP_CH23.vipd_array[0] = rx_buf[204];
-	temp->VIP_CH24.vipd_array[0] = rx_buf[210];
-	temp->VIP_CH25.vipd_array[0] = rx_buf[216];
-	temp->VIP_CH26.vipd_array[0] = rx_buf[222];
-	temp->VIP_CH27.vipd_array[0] = rx_buf[228];
-	temp->VIP_CH28.vipd_array[0] = rx_buf[234];
-	temp->VIP_CH29.vipd_array[0] = rx_buf[240];
-	temp->VIP_CH30.vipd_array[0] = rx_buf[246];
-	temp->VIP_CH31.vipd_array[0] = rx_buf[252];
+	result_dest->VIP_CH00.vipd_array[0] = rx_buf[66];
+	result_dest->VIP_CH01.vipd_array[0] = rx_buf[72];
+	result_dest->VIP_CH02.vipd_array[0] = rx_buf[78];
+	result_dest->VIP_CH03.vipd_array[0] = rx_buf[84];
+	result_dest->VIP_CH04.vipd_array[0] = rx_buf[90];
+	result_dest->VIP_CH05.vipd_array[0] = rx_buf[96];
+	result_dest->VIP_CH06.vipd_array[0] = rx_buf[102];
+	result_dest->VIP_CH07.vipd_array[0] = rx_buf[108];
+	result_dest->VIP_CH08.vipd_array[0] = rx_buf[114];
+	result_dest->VIP_CH09.vipd_array[0] = rx_buf[120];
+	result_dest->VIP_CH10.vipd_array[0] = rx_buf[126];
+	result_dest->VIP_CH11.vipd_array[0] = rx_buf[132];
+	result_dest->VIP_CH12.vipd_array[0] = rx_buf[138];
+	result_dest->VIP_CH13.vipd_array[0] = rx_buf[144];
+	result_dest->VIP_CH14.vipd_array[0] = rx_buf[150];
+	result_dest->VIP_CH15.vipd_array[0] = rx_buf[156];
+	result_dest->VIP_CH16.vipd_array[0] = rx_buf[162];
+	result_dest->VIP_CH17.vipd_array[0] = rx_buf[168];
+	result_dest->VIP_CH18.vipd_array[0] = rx_buf[174];
+	result_dest->VIP_CH19.vipd_array[0] = rx_buf[180];
+	result_dest->VIP_CH20.vipd_array[0] = rx_buf[186];
+	result_dest->VIP_CH21.vipd_array[0] = rx_buf[192];
+	result_dest->VIP_CH22.vipd_array[0] = rx_buf[198];
+	result_dest->VIP_CH23.vipd_array[0] = rx_buf[204];
+	result_dest->VIP_CH24.vipd_array[0] = rx_buf[210];
+	result_dest->VIP_CH25.vipd_array[0] = rx_buf[216];
+	result_dest->VIP_CH26.vipd_array[0] = rx_buf[222];
+	result_dest->VIP_CH27.vipd_array[0] = rx_buf[228];
+	result_dest->VIP_CH28.vipd_array[0] = rx_buf[234];
+	result_dest->VIP_CH29.vipd_array[0] = rx_buf[240];
+	result_dest->VIP_CH30.vipd_array[0] = rx_buf[246];
+	result_dest->VIP_CH31.vipd_array[0] = rx_buf[252];
 
 }
 
 //_________________________________________________________________________________________________
 
-void eps_get_pdu_housekeeping_data_eng(PDU_HK_D* temp) {
-	// We'll be using this function
+void eps_get_pdu_housekeeping_data_eng(PDU_HK_D* result_dest) {
 	uint8_t CC = 0x52;
 	uint8_t cmd_buf[4];
 
@@ -483,62 +481,62 @@ void eps_get_pdu_housekeeping_data_eng(PDU_HK_D* temp) {
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 258, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
-	temp->VOLT_BRDSUP = rx_buf[6];
-	temp->TEMP_MCU = rx_buf[12];
-	temp->VIP_INPUT.vipd_array[0] = rx_buf[16];
-	temp->STAT_CH_ON = rx_buf[16];
-	temp->STAT_CH_EXT_ON = rx_buf[18];
-	temp->STAT_CH_OCF = rx_buf[20];
-	temp->STAT_CH_EXT_OCF = rx_buf[22];
+	result_dest->status = rx_buf[4];
+	result_dest->VOLT_BRDSUP = rx_buf[6];
+	result_dest->TEMP_MCU = rx_buf[12];
+	result_dest->VIP_INPUT.vipd_array[0] = rx_buf[16];
+	result_dest->STAT_CH_ON = rx_buf[16];
+	result_dest->STAT_CH_EXT_ON = rx_buf[18];
+	result_dest->STAT_CH_OCF = rx_buf[20];
+	result_dest->STAT_CH_EXT_OCF = rx_buf[22];
 
-	temp->VIP_VD0.vipd_array[0] = rx_buf[24];
-	temp->VIP_VD1.vipd_array[0] = rx_buf[30];
-	temp->VIP_VD2.vipd_array[0] = rx_buf[36];
-	temp->VIP_VD3.vipd_array[0] = rx_buf[42];
-	temp->VIP_VD4.vipd_array[0] = rx_buf[48];
-	temp->VIP_VD5.vipd_array[0] = rx_buf[54];
-	temp->VIP_VD6.vipd_array[0] = rx_buf[60];
+	result_dest->VIP_VD0.vipd_array[0] = rx_buf[24];
+	result_dest->VIP_VD1.vipd_array[0] = rx_buf[30];
+	result_dest->VIP_VD2.vipd_array[0] = rx_buf[36];
+	result_dest->VIP_VD3.vipd_array[0] = rx_buf[42];
+	result_dest->VIP_VD4.vipd_array[0] = rx_buf[48];
+	result_dest->VIP_VD5.vipd_array[0] = rx_buf[54];
+	result_dest->VIP_VD6.vipd_array[0] = rx_buf[60];
 
-	temp->VIP_CH00.vipd_array[0] = rx_buf[66];
-	temp->VIP_CH01.vipd_array[0] = rx_buf[72];
-	temp->VIP_CH02.vipd_array[0] = rx_buf[78];
-	temp->VIP_CH03.vipd_array[0] = rx_buf[84];
-	temp->VIP_CH04.vipd_array[0] = rx_buf[90];
-	temp->VIP_CH05.vipd_array[0] = rx_buf[96];
-	temp->VIP_CH06.vipd_array[0] = rx_buf[102];
-	temp->VIP_CH07.vipd_array[0] = rx_buf[108];
-	temp->VIP_CH08.vipd_array[0] = rx_buf[114];
-	temp->VIP_CH09.vipd_array[0] = rx_buf[120];
-	temp->VIP_CH10.vipd_array[0] = rx_buf[126];
-	temp->VIP_CH11.vipd_array[0] = rx_buf[132];
-	temp->VIP_CH12.vipd_array[0] = rx_buf[138];
-	temp->VIP_CH13.vipd_array[0] = rx_buf[144];
-	temp->VIP_CH14.vipd_array[0] = rx_buf[150];
-	temp->VIP_CH15.vipd_array[0] = rx_buf[156];
-	temp->VIP_CH16.vipd_array[0] = rx_buf[162];
-	temp->VIP_CH17.vipd_array[0] = rx_buf[168];
-	temp->VIP_CH18.vipd_array[0] = rx_buf[174];
-	temp->VIP_CH19.vipd_array[0] = rx_buf[180];
-	temp->VIP_CH20.vipd_array[0] = rx_buf[186];
-	temp->VIP_CH21.vipd_array[0] = rx_buf[192];
-	temp->VIP_CH22.vipd_array[0] = rx_buf[198];
-	temp->VIP_CH23.vipd_array[0] = rx_buf[204];
-	temp->VIP_CH24.vipd_array[0] = rx_buf[210];
-	temp->VIP_CH25.vipd_array[0] = rx_buf[216];
-	temp->VIP_CH26.vipd_array[0] = rx_buf[222];
-	temp->VIP_CH27.vipd_array[0] = rx_buf[228];
-	temp->VIP_CH28.vipd_array[0] = rx_buf[234];
-	temp->VIP_CH29.vipd_array[0] = rx_buf[240];
-	temp->VIP_CH30.vipd_array[0] = rx_buf[246];
-	temp->VIP_CH31.vipd_array[0] = rx_buf[252];
+	result_dest->VIP_CH00.vipd_array[0] = rx_buf[66];
+	result_dest->VIP_CH01.vipd_array[0] = rx_buf[72];
+	result_dest->VIP_CH02.vipd_array[0] = rx_buf[78];
+	result_dest->VIP_CH03.vipd_array[0] = rx_buf[84];
+	result_dest->VIP_CH04.vipd_array[0] = rx_buf[90];
+	result_dest->VIP_CH05.vipd_array[0] = rx_buf[96];
+	result_dest->VIP_CH06.vipd_array[0] = rx_buf[102];
+	result_dest->VIP_CH07.vipd_array[0] = rx_buf[108];
+	result_dest->VIP_CH08.vipd_array[0] = rx_buf[114];
+	result_dest->VIP_CH09.vipd_array[0] = rx_buf[120];
+	result_dest->VIP_CH10.vipd_array[0] = rx_buf[126];
+	result_dest->VIP_CH11.vipd_array[0] = rx_buf[132];
+	result_dest->VIP_CH12.vipd_array[0] = rx_buf[138];
+	result_dest->VIP_CH13.vipd_array[0] = rx_buf[144];
+	result_dest->VIP_CH14.vipd_array[0] = rx_buf[150];
+	result_dest->VIP_CH15.vipd_array[0] = rx_buf[156];
+	result_dest->VIP_CH16.vipd_array[0] = rx_buf[162];
+	result_dest->VIP_CH17.vipd_array[0] = rx_buf[168];
+	result_dest->VIP_CH18.vipd_array[0] = rx_buf[174];
+	result_dest->VIP_CH19.vipd_array[0] = rx_buf[180];
+	result_dest->VIP_CH20.vipd_array[0] = rx_buf[186];
+	result_dest->VIP_CH21.vipd_array[0] = rx_buf[192];
+	result_dest->VIP_CH22.vipd_array[0] = rx_buf[198];
+	result_dest->VIP_CH23.vipd_array[0] = rx_buf[204];
+	result_dest->VIP_CH24.vipd_array[0] = rx_buf[210];
+	result_dest->VIP_CH25.vipd_array[0] = rx_buf[216];
+	result_dest->VIP_CH26.vipd_array[0] = rx_buf[222];
+	result_dest->VIP_CH27.vipd_array[0] = rx_buf[228];
+	result_dest->VIP_CH28.vipd_array[0] = rx_buf[234];
+	result_dest->VIP_CH29.vipd_array[0] = rx_buf[240];
+	result_dest->VIP_CH30.vipd_array[0] = rx_buf[246];
+	result_dest->VIP_CH31.vipd_array[0] = rx_buf[252];
 
 }
 
 //__________________________________________________________________________________________________________________
 
 
-void eps_get_pdu_housekeeping_data_running_average(PDU_HK_D* temp){
+void eps_get_pdu_housekeeping_data_running_average(PDU_HK_D* result_dest) {
 	uint8_t CC = 0x54;
 	uint8_t cmd_buf[4];
 
@@ -553,61 +551,61 @@ void eps_get_pdu_housekeeping_data_running_average(PDU_HK_D* temp){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 258, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
-	temp->VOLT_BRDSUP = rx_buf[6];
-	temp->TEMP_MCU = rx_buf[12];
-	temp->VIP_INPUT.vipd_array[0] = rx_buf[16];
-	temp->STAT_CH_ON = rx_buf[16];
-	temp->STAT_CH_EXT_ON = rx_buf[18];
-	temp->STAT_CH_OCF = rx_buf[20];
-	temp->STAT_CH_EXT_OCF = rx_buf[22];
+	result_dest->status = rx_buf[4];
+	result_dest->VOLT_BRDSUP = rx_buf[6];
+	result_dest->TEMP_MCU = rx_buf[12];
+	result_dest->VIP_INPUT.vipd_array[0] = rx_buf[16];
+	result_dest->STAT_CH_ON = rx_buf[16];
+	result_dest->STAT_CH_EXT_ON = rx_buf[18];
+	result_dest->STAT_CH_OCF = rx_buf[20];
+	result_dest->STAT_CH_EXT_OCF = rx_buf[22];
 
-	temp->VIP_VD0.vipd_array[0] = rx_buf[24];
-	temp->VIP_VD1.vipd_array[0] = rx_buf[30];
-	temp->VIP_VD2.vipd_array[0] = rx_buf[36];
-	temp->VIP_VD3.vipd_array[0] = rx_buf[42];
-	temp->VIP_VD4.vipd_array[0] = rx_buf[48];
-	temp->VIP_VD5.vipd_array[0] = rx_buf[54];
-	temp->VIP_VD6.vipd_array[0] = rx_buf[60];
+	result_dest->VIP_VD0.vipd_array[0] = rx_buf[24];
+	result_dest->VIP_VD1.vipd_array[0] = rx_buf[30];
+	result_dest->VIP_VD2.vipd_array[0] = rx_buf[36];
+	result_dest->VIP_VD3.vipd_array[0] = rx_buf[42];
+	result_dest->VIP_VD4.vipd_array[0] = rx_buf[48];
+	result_dest->VIP_VD5.vipd_array[0] = rx_buf[54];
+	result_dest->VIP_VD6.vipd_array[0] = rx_buf[60];
 
-	temp->VIP_CH00.vipd_array[0] = rx_buf[66];
-	temp->VIP_CH01.vipd_array[0] = rx_buf[72];
-	temp->VIP_CH02.vipd_array[0] = rx_buf[78];
-	temp->VIP_CH03.vipd_array[0] = rx_buf[84];
-	temp->VIP_CH04.vipd_array[0] = rx_buf[90];
-	temp->VIP_CH05.vipd_array[0] = rx_buf[96];
-	temp->VIP_CH06.vipd_array[0] = rx_buf[102];
-	temp->VIP_CH07.vipd_array[0] = rx_buf[108];
-	temp->VIP_CH08.vipd_array[0] = rx_buf[114];
-	temp->VIP_CH09.vipd_array[0] = rx_buf[120];
-	temp->VIP_CH10.vipd_array[0] = rx_buf[126];
-	temp->VIP_CH11.vipd_array[0] = rx_buf[132];
-	temp->VIP_CH12.vipd_array[0] = rx_buf[138];
-	temp->VIP_CH13.vipd_array[0] = rx_buf[144];
-	temp->VIP_CH14.vipd_array[0] = rx_buf[150];
-	temp->VIP_CH15.vipd_array[0] = rx_buf[156];
-	temp->VIP_CH16.vipd_array[0] = rx_buf[162];
-	temp->VIP_CH17.vipd_array[0] = rx_buf[168];
-	temp->VIP_CH18.vipd_array[0] = rx_buf[174];
-	temp->VIP_CH19.vipd_array[0] = rx_buf[180];
-	temp->VIP_CH20.vipd_array[0] = rx_buf[186];
-	temp->VIP_CH21.vipd_array[0] = rx_buf[192];
-	temp->VIP_CH22.vipd_array[0] = rx_buf[198];
-	temp->VIP_CH23.vipd_array[0] = rx_buf[204];
-	temp->VIP_CH24.vipd_array[0] = rx_buf[210];
-	temp->VIP_CH25.vipd_array[0] = rx_buf[216];
-	temp->VIP_CH26.vipd_array[0] = rx_buf[222];
-	temp->VIP_CH27.vipd_array[0] = rx_buf[228];
-	temp->VIP_CH28.vipd_array[0] = rx_buf[234];
-	temp->VIP_CH29.vipd_array[0] = rx_buf[240];
-	temp->VIP_CH30.vipd_array[0] = rx_buf[246];
-	temp->VIP_CH31.vipd_array[0] = rx_buf[252];
+	result_dest->VIP_CH00.vipd_array[0] = rx_buf[66];
+	result_dest->VIP_CH01.vipd_array[0] = rx_buf[72];
+	result_dest->VIP_CH02.vipd_array[0] = rx_buf[78];
+	result_dest->VIP_CH03.vipd_array[0] = rx_buf[84];
+	result_dest->VIP_CH04.vipd_array[0] = rx_buf[90];
+	result_dest->VIP_CH05.vipd_array[0] = rx_buf[96];
+	result_dest->VIP_CH06.vipd_array[0] = rx_buf[102];
+	result_dest->VIP_CH07.vipd_array[0] = rx_buf[108];
+	result_dest->VIP_CH08.vipd_array[0] = rx_buf[114];
+	result_dest->VIP_CH09.vipd_array[0] = rx_buf[120];
+	result_dest->VIP_CH10.vipd_array[0] = rx_buf[126];
+	result_dest->VIP_CH11.vipd_array[0] = rx_buf[132];
+	result_dest->VIP_CH12.vipd_array[0] = rx_buf[138];
+	result_dest->VIP_CH13.vipd_array[0] = rx_buf[144];
+	result_dest->VIP_CH14.vipd_array[0] = rx_buf[150];
+	result_dest->VIP_CH15.vipd_array[0] = rx_buf[156];
+	result_dest->VIP_CH16.vipd_array[0] = rx_buf[162];
+	result_dest->VIP_CH17.vipd_array[0] = rx_buf[168];
+	result_dest->VIP_CH18.vipd_array[0] = rx_buf[174];
+	result_dest->VIP_CH19.vipd_array[0] = rx_buf[180];
+	result_dest->VIP_CH20.vipd_array[0] = rx_buf[186];
+	result_dest->VIP_CH21.vipd_array[0] = rx_buf[192];
+	result_dest->VIP_CH22.vipd_array[0] = rx_buf[198];
+	result_dest->VIP_CH23.vipd_array[0] = rx_buf[204];
+	result_dest->VIP_CH24.vipd_array[0] = rx_buf[210];
+	result_dest->VIP_CH25.vipd_array[0] = rx_buf[216];
+	result_dest->VIP_CH26.vipd_array[0] = rx_buf[222];
+	result_dest->VIP_CH27.vipd_array[0] = rx_buf[228];
+	result_dest->VIP_CH28.vipd_array[0] = rx_buf[234];
+	result_dest->VIP_CH29.vipd_array[0] = rx_buf[240];
+	result_dest->VIP_CH30.vipd_array[0] = rx_buf[246];
+	result_dest->VIP_CH31.vipd_array[0] = rx_buf[252];
 
 }
 
 //_____________________________________________________________________________________________________________________________
 
-void eps_get_pbu_housekeeping_data_raw(PBU_HK_D* temp){
+void eps_get_pbu_housekeeping_data_raw(PBU_HK_D* result_dest) {
 	uint8_t CC = 0x60;
 	uint8_t cmd_buf[4];
 
@@ -622,50 +620,50 @@ void eps_get_pbu_housekeeping_data_raw(PBU_HK_D* temp){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 84, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
-	temp->VOLT_BRDSUP = rx_buf[6];
-	temp->TEMP_MCU = rx_buf[8];
-	temp->VIP_INPUT.vipd_array[0] = rx_buf[10];
-	temp->STAT_BU = rx_buf[16];
+	result_dest->status = rx_buf[4];
+	result_dest->VOLT_BRDSUP = rx_buf[6];
+	result_dest->TEMP_MCU = rx_buf[8];
+	result_dest->VIP_INPUT.vipd_array[0] = rx_buf[10];
+	result_dest->STAT_BU = rx_buf[16];
 
-	temp->BP1.VIP_BP_Input.vipd_array[0] = rx_buf[18];
-	temp->BP1.STAT_BP = rx_buf[24];
-	temp->BP1.VOLT_CELL1 = rx_buf[26];
-	temp->BP1.VOLT_CELL2 = rx_buf[28];
-	temp->BP1.VOLT_CELL3 = rx_buf[30];
-	temp->BP1.VOLT_CELL4 = rx_buf[32];
-	temp->BP1.BAT_TEMP1 = rx_buf[34];
-	temp->BP1.BAT_TEMP2 = rx_buf[36];
-	temp->BP1.BAT_TEMP3 = rx_buf[38];
-
-
-	temp->BP2.VIP_BP_Input.vipd_array[0] = rx_buf[40];
-	temp->BP2.STAT_BP = rx_buf[46];
-	temp->BP2.VOLT_CELL1 = rx_buf[48];
-	temp->BP2.VOLT_CELL2 = rx_buf[50];
-	temp->BP2.VOLT_CELL3 = rx_buf[52];
-	temp->BP2.VOLT_CELL4 = rx_buf[54];
-	temp->BP2.BAT_TEMP1 = rx_buf[56];
-	temp->BP2.BAT_TEMP2 = rx_buf[58];
-	temp->BP2.BAT_TEMP3 = rx_buf[60];
+	result_dest->BP1.VIP_BP_Input.vipd_array[0] = rx_buf[18];
+	result_dest->BP1.STAT_BP = rx_buf[24];
+	result_dest->BP1.VOLT_CELL1 = rx_buf[26];
+	result_dest->BP1.VOLT_CELL2 = rx_buf[28];
+	result_dest->BP1.VOLT_CELL3 = rx_buf[30];
+	result_dest->BP1.VOLT_CELL4 = rx_buf[32];
+	result_dest->BP1.BAT_TEMP1 = rx_buf[34];
+	result_dest->BP1.BAT_TEMP2 = rx_buf[36];
+	result_dest->BP1.BAT_TEMP3 = rx_buf[38];
 
 
-	temp->BP3.VIP_BP_Input.vipd_array[0] = rx_buf[62];
-	temp->BP3.STAT_BP = rx_buf[68];
-	temp->BP3.VOLT_CELL1 = rx_buf[70];
-	temp->BP3.VOLT_CELL2 = rx_buf[72];
-	temp->BP3.VOLT_CELL3 = rx_buf[74];
-	temp->BP3.VOLT_CELL4 = rx_buf[76];
-	temp->BP3.BAT_TEMP1 = rx_buf[78];
-	temp->BP3.BAT_TEMP2 = rx_buf[80];
-	temp->BP3.BAT_TEMP3 = rx_buf[82];
+	result_dest->BP2.VIP_BP_Input.vipd_array[0] = rx_buf[40];
+	result_dest->BP2.STAT_BP = rx_buf[46];
+	result_dest->BP2.VOLT_CELL1 = rx_buf[48];
+	result_dest->BP2.VOLT_CELL2 = rx_buf[50];
+	result_dest->BP2.VOLT_CELL3 = rx_buf[52];
+	result_dest->BP2.VOLT_CELL4 = rx_buf[54];
+	result_dest->BP2.BAT_TEMP1 = rx_buf[56];
+	result_dest->BP2.BAT_TEMP2 = rx_buf[58];
+	result_dest->BP2.BAT_TEMP3 = rx_buf[60];
+
+
+	result_dest->BP3.VIP_BP_Input.vipd_array[0] = rx_buf[62];
+	result_dest->BP3.STAT_BP = rx_buf[68];
+	result_dest->BP3.VOLT_CELL1 = rx_buf[70];
+	result_dest->BP3.VOLT_CELL2 = rx_buf[72];
+	result_dest->BP3.VOLT_CELL3 = rx_buf[74];
+	result_dest->BP3.VOLT_CELL4 = rx_buf[76];
+	result_dest->BP3.BAT_TEMP1 = rx_buf[78];
+	result_dest->BP3.BAT_TEMP2 = rx_buf[80];
+	result_dest->BP3.BAT_TEMP3 = rx_buf[82];
 
 
 }
 
 //_______________________________________________________________________________________________
 
-void eps_get_pbu_housekeeping_data_eng(PBU_HK_D* temp){
+void eps_get_pbu_housekeeping_data_eng(PBU_HK_D* result_dest) {
 	uint8_t CC = 0x62;
 	uint8_t cmd_buf[4];
 
@@ -680,49 +678,49 @@ void eps_get_pbu_housekeeping_data_eng(PBU_HK_D* temp){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 84, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
-	temp->VOLT_BRDSUP = rx_buf[6];
-	temp->TEMP_MCU = rx_buf[12];
-	temp->VIP_INPUT.vipd_array[0] = rx_buf[10];
-	temp->STAT_BU = rx_buf[16];
+	result_dest->status = rx_buf[4];
+	result_dest->VOLT_BRDSUP = rx_buf[6];
+	result_dest->TEMP_MCU = rx_buf[12];
+	result_dest->VIP_INPUT.vipd_array[0] = rx_buf[10];
+	result_dest->STAT_BU = rx_buf[16];
 
-	temp->BP1.VIP_BP_Input.vipd_array[0] = rx_buf[18];
-	temp->BP1.STAT_BP = rx_buf[24];
-	temp->BP1.VOLT_CELL1 = rx_buf[26];
-	temp->BP1.VOLT_CELL2 = rx_buf[28];
-	temp->BP1.VOLT_CELL3 = rx_buf[30];
-	temp->BP1.VOLT_CELL4 = rx_buf[32];
-	temp->BP1.BAT_TEMP1 = rx_buf[34];
-	temp->BP1.BAT_TEMP2 = rx_buf[36];
-	temp->BP1.BAT_TEMP3 = rx_buf[38];
-
-
-	temp->BP2.VIP_BP_Input.vipd_array[0] = rx_buf[40];
-	temp->BP2.STAT_BP = rx_buf[46];
-	temp->BP2.VOLT_CELL1 = rx_buf[48];
-	temp->BP2.VOLT_CELL2 = rx_buf[50];
-	temp->BP2.VOLT_CELL3 = rx_buf[52];
-	temp->BP2.VOLT_CELL4 = rx_buf[54];
-	temp->BP2.BAT_TEMP1 = rx_buf[56];
-	temp->BP2.BAT_TEMP2 = rx_buf[58];
-	temp->BP2.BAT_TEMP3 = rx_buf[60];
+	result_dest->BP1.VIP_BP_Input.vipd_array[0] = rx_buf[18];
+	result_dest->BP1.STAT_BP = rx_buf[24];
+	result_dest->BP1.VOLT_CELL1 = rx_buf[26];
+	result_dest->BP1.VOLT_CELL2 = rx_buf[28];
+	result_dest->BP1.VOLT_CELL3 = rx_buf[30];
+	result_dest->BP1.VOLT_CELL4 = rx_buf[32];
+	result_dest->BP1.BAT_TEMP1 = rx_buf[34];
+	result_dest->BP1.BAT_TEMP2 = rx_buf[36];
+	result_dest->BP1.BAT_TEMP3 = rx_buf[38];
 
 
-	temp->BP3.VIP_BP_Input.vipd_array[0] = rx_buf[62];
-	temp->BP3.STAT_BP = rx_buf[68];
-	temp->BP3.VOLT_CELL1 = rx_buf[70];
-	temp->BP3.VOLT_CELL2 = rx_buf[72];
-	temp->BP3.VOLT_CELL3 = rx_buf[74];
-	temp->BP3.VOLT_CELL4 = rx_buf[76];
-	temp->BP3.BAT_TEMP1 = rx_buf[78];
-	temp->BP3.BAT_TEMP2 = rx_buf[80];
-	temp->BP3.BAT_TEMP3 = rx_buf[82];
+	result_dest->BP2.VIP_BP_Input.vipd_array[0] = rx_buf[40];
+	result_dest->BP2.STAT_BP = rx_buf[46];
+	result_dest->BP2.VOLT_CELL1 = rx_buf[48];
+	result_dest->BP2.VOLT_CELL2 = rx_buf[50];
+	result_dest->BP2.VOLT_CELL3 = rx_buf[52];
+	result_dest->BP2.VOLT_CELL4 = rx_buf[54];
+	result_dest->BP2.BAT_TEMP1 = rx_buf[56];
+	result_dest->BP2.BAT_TEMP2 = rx_buf[58];
+	result_dest->BP2.BAT_TEMP3 = rx_buf[60];
+
+
+	result_dest->BP3.VIP_BP_Input.vipd_array[0] = rx_buf[62];
+	result_dest->BP3.STAT_BP = rx_buf[68];
+	result_dest->BP3.VOLT_CELL1 = rx_buf[70];
+	result_dest->BP3.VOLT_CELL2 = rx_buf[72];
+	result_dest->BP3.VOLT_CELL3 = rx_buf[74];
+	result_dest->BP3.VOLT_CELL4 = rx_buf[76];
+	result_dest->BP3.BAT_TEMP1 = rx_buf[78];
+	result_dest->BP3.BAT_TEMP2 = rx_buf[80];
+	result_dest->BP3.BAT_TEMP3 = rx_buf[82];
 
 }
 
 //________________________________________________________________________________________
 
-void eps_get_pbu_housekeeping_data_running_average(PBU_HK_D* temp){
+void eps_get_pbu_housekeeping_data_running_average(PBU_HK_D* result_dest) {
 	uint8_t CC = 0x64;
 	uint8_t cmd_buf[4];
 
@@ -737,56 +735,56 @@ void eps_get_pbu_housekeeping_data_running_average(PBU_HK_D* temp){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 84, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
-	temp->VOLT_BRDSUP = rx_buf[6];
-	temp->TEMP_MCU = rx_buf[12];
-	temp->VIP_INPUT.vipd_array[0] = rx_buf[10];
-	temp->STAT_BU = rx_buf[16];
+	result_dest->status = rx_buf[4];
+	result_dest->VOLT_BRDSUP = rx_buf[6];
+	result_dest->TEMP_MCU = rx_buf[12];
+	result_dest->VIP_INPUT.vipd_array[0] = rx_buf[10];
+	result_dest->STAT_BU = rx_buf[16];
 
-	temp->status = rx_buf[4];
-	temp->VOLT_BRDSUP = rx_buf[6];
-	temp->TEMP_MCU = rx_buf[12];
-	temp->VIP_INPUT.vipd_array[0] = rx_buf[10];
-	temp->STAT_BU = rx_buf[16];
+	result_dest->status = rx_buf[4];
+	result_dest->VOLT_BRDSUP = rx_buf[6];
+	result_dest->TEMP_MCU = rx_buf[12];
+	result_dest->VIP_INPUT.vipd_array[0] = rx_buf[10];
+	result_dest->STAT_BU = rx_buf[16];
 
-	temp->BP1.VIP_BP_Input.vipd_array[0] = rx_buf[18];
-	temp->BP1.STAT_BP = rx_buf[24];
-	temp->BP1.VOLT_CELL1 = rx_buf[26];
-	temp->BP1.VOLT_CELL2 = rx_buf[28];
-	temp->BP1.VOLT_CELL3 = rx_buf[30];
-	temp->BP1.VOLT_CELL4 = rx_buf[32];
-	temp->BP1.BAT_TEMP1 = rx_buf[34];
-	temp->BP1.BAT_TEMP2 = rx_buf[36];
-	temp->BP1.BAT_TEMP3 = rx_buf[38];
-
-
-	temp->BP2.VIP_BP_Input.vipd_array[0] = rx_buf[40];
-	temp->BP2.STAT_BP = rx_buf[46];
-	temp->BP2.VOLT_CELL1 = rx_buf[48];
-	temp->BP2.VOLT_CELL2 = rx_buf[50];
-	temp->BP2.VOLT_CELL3 = rx_buf[52];
-	temp->BP2.VOLT_CELL4 = rx_buf[54];
-	temp->BP2.BAT_TEMP1 = rx_buf[56];
-	temp->BP2.BAT_TEMP2 = rx_buf[58];
-	temp->BP2.BAT_TEMP3 = rx_buf[60];
+	result_dest->BP1.VIP_BP_Input.vipd_array[0] = rx_buf[18];
+	result_dest->BP1.STAT_BP = rx_buf[24];
+	result_dest->BP1.VOLT_CELL1 = rx_buf[26];
+	result_dest->BP1.VOLT_CELL2 = rx_buf[28];
+	result_dest->BP1.VOLT_CELL3 = rx_buf[30];
+	result_dest->BP1.VOLT_CELL4 = rx_buf[32];
+	result_dest->BP1.BAT_TEMP1 = rx_buf[34];
+	result_dest->BP1.BAT_TEMP2 = rx_buf[36];
+	result_dest->BP1.BAT_TEMP3 = rx_buf[38];
 
 
-	temp->BP3.VIP_BP_Input.vipd_array[0] = rx_buf[62];
-	temp->BP3.STAT_BP = rx_buf[68];
-	temp->BP3.VOLT_CELL1 = rx_buf[70];
-	temp->BP3.VOLT_CELL2 = rx_buf[72];
-	temp->BP3.VOLT_CELL3 = rx_buf[74];
-	temp->BP3.VOLT_CELL4 = rx_buf[76];
-	temp->BP3.BAT_TEMP1 = rx_buf[78];
-	temp->BP3.BAT_TEMP2 = rx_buf[80];
-	temp->BP3.BAT_TEMP3 = rx_buf[82];
+	result_dest->BP2.VIP_BP_Input.vipd_array[0] = rx_buf[40];
+	result_dest->BP2.STAT_BP = rx_buf[46];
+	result_dest->BP2.VOLT_CELL1 = rx_buf[48];
+	result_dest->BP2.VOLT_CELL2 = rx_buf[50];
+	result_dest->BP2.VOLT_CELL3 = rx_buf[52];
+	result_dest->BP2.VOLT_CELL4 = rx_buf[54];
+	result_dest->BP2.BAT_TEMP1 = rx_buf[56];
+	result_dest->BP2.BAT_TEMP2 = rx_buf[58];
+	result_dest->BP2.BAT_TEMP3 = rx_buf[60];
+
+
+	result_dest->BP3.VIP_BP_Input.vipd_array[0] = rx_buf[62];
+	result_dest->BP3.STAT_BP = rx_buf[68];
+	result_dest->BP3.VOLT_CELL1 = rx_buf[70];
+	result_dest->BP3.VOLT_CELL2 = rx_buf[72];
+	result_dest->BP3.VOLT_CELL3 = rx_buf[74];
+	result_dest->BP3.VOLT_CELL4 = rx_buf[76];
+	result_dest->BP3.BAT_TEMP1 = rx_buf[78];
+	result_dest->BP3.BAT_TEMP2 = rx_buf[80];
+	result_dest->BP3.BAT_TEMP3 = rx_buf[82];
 
 
 }
 
 //_________________________________________________________________________________________________
 
-void eps_get_pcu_housekeeping_data_raw(PCU_HK_D* temp){
+void eps_get_pcu_housekeeping_data_raw(PCU_HK_D* result_dest) {
 	uint8_t CC = 0x70;
 	uint8_t cmd_buf[4];
 
@@ -801,40 +799,40 @@ void eps_get_pcu_housekeeping_data_raw(PCU_HK_D* temp){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 72, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
-	temp->VOLT_BRDSUP = rx_buf[6];
-	temp->TEMP_MCU = rx_buf[8];
-	temp->VIP_OUTPUT.vipd_array[0] = rx_buf[10];
+	result_dest->status = rx_buf[4];
+	result_dest->VOLT_BRDSUP = rx_buf[6];
+	result_dest->TEMP_MCU = rx_buf[8];
+	result_dest->VIP_OUTPUT.vipd_array[0] = rx_buf[10];
 
-	temp->CC1.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[16];
-	temp->CC1.VOLT_IN_MPPT = rx_buf[22];
-	temp->CC1.CURR_IN_MPPT = rx_buf[24];
-	temp->CC1.VOLT_OU_MPPT = rx_buf[26];
-	temp->CC1.CURR_OU_MPPT = rx_buf[28];
+	result_dest->CC1.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[16];
+	result_dest->CC1.VOLT_IN_MPPT = rx_buf[22];
+	result_dest->CC1.CURR_IN_MPPT = rx_buf[24];
+	result_dest->CC1.VOLT_OU_MPPT = rx_buf[26];
+	result_dest->CC1.CURR_OU_MPPT = rx_buf[28];
 
-	temp->CC2.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[30];
-	temp->CC2.VOLT_IN_MPPT = rx_buf[36];
-	temp->CC2.CURR_IN_MPPT = rx_buf[38];
-	temp->CC2.VOLT_OU_MPPT = rx_buf[40];
-	temp->CC2.CURR_OU_MPPT = rx_buf[42];
+	result_dest->CC2.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[30];
+	result_dest->CC2.VOLT_IN_MPPT = rx_buf[36];
+	result_dest->CC2.CURR_IN_MPPT = rx_buf[38];
+	result_dest->CC2.VOLT_OU_MPPT = rx_buf[40];
+	result_dest->CC2.CURR_OU_MPPT = rx_buf[42];
 
-	temp->CC3.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[44];
-	temp->CC3.VOLT_IN_MPPT = rx_buf[50];
-	temp->CC3.CURR_IN_MPPT = rx_buf[52];
-	temp->CC3.VOLT_OU_MPPT = rx_buf[54];
-	temp->CC3.CURR_OU_MPPT = rx_buf[56];
+	result_dest->CC3.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[44];
+	result_dest->CC3.VOLT_IN_MPPT = rx_buf[50];
+	result_dest->CC3.CURR_IN_MPPT = rx_buf[52];
+	result_dest->CC3.VOLT_OU_MPPT = rx_buf[54];
+	result_dest->CC3.CURR_OU_MPPT = rx_buf[56];
 
-	temp->CC3.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[58];
-	temp->CC3.VOLT_IN_MPPT = rx_buf[64];
-	temp->CC3.CURR_IN_MPPT = rx_buf[66];
-	temp->CC3.VOLT_OU_MPPT = rx_buf[68];
-	temp->CC3.CURR_OU_MPPT = rx_buf[70];
+	result_dest->CC3.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[58];
+	result_dest->CC3.VOLT_IN_MPPT = rx_buf[64];
+	result_dest->CC3.CURR_IN_MPPT = rx_buf[66];
+	result_dest->CC3.VOLT_OU_MPPT = rx_buf[68];
+	result_dest->CC3.CURR_OU_MPPT = rx_buf[70];
 
 }
 
 //_______________________________________________________________________________________
 
-void eps_get_pcu_housekeeping_data_eng(PCU_HK_D* temp){
+void eps_get_pcu_housekeeping_data_eng(PCU_HK_D* result_dest) {
 	uint8_t CC = 0x72;
 	uint8_t cmd_buf[4];
 
@@ -849,39 +847,39 @@ void eps_get_pcu_housekeeping_data_eng(PCU_HK_D* temp){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 72, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
-	temp->VOLT_BRDSUP = rx_buf[6];
-	temp->TEMP_MCU = rx_buf[8];
-	temp->VIP_OUTPUT.vipd_array[0] = rx_buf[10];
+	result_dest->status = rx_buf[4];
+	result_dest->VOLT_BRDSUP = rx_buf[6];
+	result_dest->TEMP_MCU = rx_buf[8];
+	result_dest->VIP_OUTPUT.vipd_array[0] = rx_buf[10];
 
-	temp->CC1.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[16];
-	temp->CC1.VOLT_IN_MPPT = rx_buf[22];
-	temp->CC1.CURR_IN_MPPT = rx_buf[24];
-	temp->CC1.VOLT_OU_MPPT = rx_buf[26];
-	temp->CC1.CURR_OU_MPPT = rx_buf[28];
+	result_dest->CC1.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[16];
+	result_dest->CC1.VOLT_IN_MPPT = rx_buf[22];
+	result_dest->CC1.CURR_IN_MPPT = rx_buf[24];
+	result_dest->CC1.VOLT_OU_MPPT = rx_buf[26];
+	result_dest->CC1.CURR_OU_MPPT = rx_buf[28];
 
-	temp->CC2.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[30];
-	temp->CC2.VOLT_IN_MPPT = rx_buf[36];
-	temp->CC2.CURR_IN_MPPT = rx_buf[38];
-	temp->CC2.VOLT_OU_MPPT = rx_buf[40];
-	temp->CC2.CURR_OU_MPPT = rx_buf[42];
+	result_dest->CC2.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[30];
+	result_dest->CC2.VOLT_IN_MPPT = rx_buf[36];
+	result_dest->CC2.CURR_IN_MPPT = rx_buf[38];
+	result_dest->CC2.VOLT_OU_MPPT = rx_buf[40];
+	result_dest->CC2.CURR_OU_MPPT = rx_buf[42];
 
-	temp->CC3.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[44];
-	temp->CC3.VOLT_IN_MPPT = rx_buf[50];
-	temp->CC3.CURR_IN_MPPT = rx_buf[52];
-	temp->CC3.VOLT_OU_MPPT = rx_buf[54];
-	temp->CC3.CURR_OU_MPPT = rx_buf[56];
+	result_dest->CC3.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[44];
+	result_dest->CC3.VOLT_IN_MPPT = rx_buf[50];
+	result_dest->CC3.CURR_IN_MPPT = rx_buf[52];
+	result_dest->CC3.VOLT_OU_MPPT = rx_buf[54];
+	result_dest->CC3.CURR_OU_MPPT = rx_buf[56];
 
-	temp->CC3.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[58];
-	temp->CC3.VOLT_IN_MPPT = rx_buf[64];
-	temp->CC3.CURR_IN_MPPT = rx_buf[66];
-	temp->CC3.VOLT_OU_MPPT = rx_buf[68];
-	temp->CC3.CURR_OU_MPPT = rx_buf[70];
+	result_dest->CC3.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[58];
+	result_dest->CC3.VOLT_IN_MPPT = rx_buf[64];
+	result_dest->CC3.CURR_IN_MPPT = rx_buf[66];
+	result_dest->CC3.VOLT_OU_MPPT = rx_buf[68];
+	result_dest->CC3.CURR_OU_MPPT = rx_buf[70];
 }
 
 //_______________________________________________________________________________________
 
-void eps_get_pcu_housekeeping_data_running_average(PCU_HK_D* temp){
+void eps_get_pcu_housekeeping_data_running_average(PCU_HK_D* result_dest) {
 	uint8_t CC = 0x74;
 	uint8_t cmd_buf[4];
 
@@ -896,40 +894,40 @@ void eps_get_pcu_housekeeping_data_running_average(PCU_HK_D* temp){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 72, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
-	temp->VOLT_BRDSUP = rx_buf[6];
-	temp->TEMP_MCU = rx_buf[8];
-	temp->VIP_OUTPUT.vipd_array[0] = rx_buf[10];
+	result_dest->status = rx_buf[4];
+	result_dest->VOLT_BRDSUP = rx_buf[6];
+	result_dest->TEMP_MCU = rx_buf[8];
+	result_dest->VIP_OUTPUT.vipd_array[0] = rx_buf[10];
 
-	temp->CC1.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[16];
-	temp->CC1.VOLT_IN_MPPT = rx_buf[22];
-	temp->CC1.CURR_IN_MPPT = rx_buf[24];
-	temp->CC1.VOLT_OU_MPPT = rx_buf[26];
-	temp->CC1.CURR_OU_MPPT = rx_buf[28];
+	result_dest->CC1.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[16];
+	result_dest->CC1.VOLT_IN_MPPT = rx_buf[22];
+	result_dest->CC1.CURR_IN_MPPT = rx_buf[24];
+	result_dest->CC1.VOLT_OU_MPPT = rx_buf[26];
+	result_dest->CC1.CURR_OU_MPPT = rx_buf[28];
 
-	temp->CC2.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[30];
-	temp->CC2.VOLT_IN_MPPT = rx_buf[36];
-	temp->CC2.CURR_IN_MPPT = rx_buf[38];
-	temp->CC2.VOLT_OU_MPPT = rx_buf[40];
-	temp->CC2.CURR_OU_MPPT = rx_buf[42];
+	result_dest->CC2.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[30];
+	result_dest->CC2.VOLT_IN_MPPT = rx_buf[36];
+	result_dest->CC2.CURR_IN_MPPT = rx_buf[38];
+	result_dest->CC2.VOLT_OU_MPPT = rx_buf[40];
+	result_dest->CC2.CURR_OU_MPPT = rx_buf[42];
 
-	temp->CC3.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[44];
-	temp->CC3.VOLT_IN_MPPT = rx_buf[50];
-	temp->CC3.CURR_IN_MPPT = rx_buf[52];
-	temp->CC3.VOLT_OU_MPPT = rx_buf[54];
-	temp->CC3.CURR_OU_MPPT = rx_buf[56];
+	result_dest->CC3.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[44];
+	result_dest->CC3.VOLT_IN_MPPT = rx_buf[50];
+	result_dest->CC3.CURR_IN_MPPT = rx_buf[52];
+	result_dest->CC3.VOLT_OU_MPPT = rx_buf[54];
+	result_dest->CC3.CURR_OU_MPPT = rx_buf[56];
 
-	temp->CC3.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[58];
-	temp->CC3.VOLT_IN_MPPT = rx_buf[64];
-	temp->CC3.CURR_IN_MPPT = rx_buf[66];
-	temp->CC3.VOLT_OU_MPPT = rx_buf[68];
-	temp->CC3.CURR_OU_MPPT = rx_buf[70];
+	result_dest->CC3.VIP_CC_OUTPUT.vipd_array[0] = rx_buf[58];
+	result_dest->CC3.VOLT_IN_MPPT = rx_buf[64];
+	result_dest->CC3.CURR_IN_MPPT = rx_buf[66];
+	result_dest->CC3.VOLT_OU_MPPT = rx_buf[68];
+	result_dest->CC3.CURR_OU_MPPT = rx_buf[70];
 
 }
 
 //----------------------------------------------------------------------------------------------------
 
-void eps_get_configuration_parameter(GET_CONFIG_PARAM* temp, uint16_t PAR_ID){
+void eps_get_configuration_parameter(GET_CONFIG_PARAM* result_dest, uint16_t PAR_ID) {
 	uint8_t CC = 0x82;
 	uint8_t cmd_buf[6];
 
@@ -946,14 +944,14 @@ void eps_get_configuration_parameter(GET_CONFIG_PARAM* temp, uint16_t PAR_ID){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 16, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
-	temp->PAR_ID = rx_buf[6];
-	temp->PAR_VAL = rx_buf[8];
+	result_dest->status = rx_buf[4];
+	result_dest->PAR_ID = rx_buf[6];
+	result_dest->PAR_VAL = rx_buf[8];
 
 }
 
 //-----------------------------------------------------------------------------------------------------
-void eps_set_configuration_parameter(SET_CONFIG_PARAM* temp, uint16_t PAR_ID, uint8_t PAR_VAL){
+void eps_set_configuration_parameter(SET_CONFIG_PARAM* result_dest, uint16_t PAR_ID, uint8_t PAR_VAL) {
 	uint8_t CC = 0x84;
 	uint8_t cmd_buf[14];
 
@@ -971,15 +969,15 @@ void eps_set_configuration_parameter(SET_CONFIG_PARAM* temp, uint16_t PAR_ID, ui
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 16, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
-	temp->PAR_ID = rx_buf[6];
-	temp->PAR_VAL = rx_buf[8];
+	result_dest->status = rx_buf[4];
+	result_dest->PAR_ID = rx_buf[6];
+	result_dest->PAR_VAL = rx_buf[8];
 
 }
 
 //-----------------------------------------------------------------------------------------------------
 
-void eps_reset_configuration_parameter(RESET_CONFIG_PAR* temp, uint16_t PAR_ID){
+void eps_reset_configuration_parameter(RESET_CONFIG_PAR* result_dest, uint16_t PAR_ID) {
 	uint8_t CC = 0x86;
 	uint8_t cmd_buf[6];
 
@@ -996,14 +994,14 @@ void eps_reset_configuration_parameter(RESET_CONFIG_PAR* temp, uint16_t PAR_ID){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 16, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
-	temp->PAR_ID = rx_buf[6];
-	temp->PAR_VAL = rx_buf[8];
+	result_dest->status = rx_buf[4];
+	result_dest->PAR_ID = rx_buf[6];
+	result_dest->PAR_VAL = rx_buf[8];
 }
 
 //---------------------------------------------------------------------------------------------------------
 
-void eps_reset_configuration(RESET_CONFIGURATION* temp){
+void eps_reset_configuration(RESET_CONFIGURATION* result_dest) {
 	uint8_t CC = 0x90;
 	uint8_t CONF_KEY = 0x87;
 
@@ -1022,13 +1020,13 @@ void eps_reset_configuration(RESET_CONFIGURATION* temp){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 16, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
+	result_dest->status = rx_buf[4];
 
 }
 
 //---------------------------------------------------------------------------------------------------
 
-void eps_load_configuration(LOAD_CONFIGURATION* temp){
+void eps_load_configuration(LOAD_CONFIGURATION* result_dest) {
 	uint8_t CC = 0x92;
 	uint8_t CONF_KEY = 0xA7;
 
@@ -1047,13 +1045,13 @@ void eps_load_configuration(LOAD_CONFIGURATION* temp){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
+	result_dest->status = rx_buf[4];
 
 }
 
 //---------------------------------------------------------------------------------------------
 
-void eps_save_configuration(SAVE_CONFIGURATION* temp){
+void eps_save_configuration(SAVE_CONFIGURATION* result_dest) {
 	uint8_t CC = 0x94;
 	uint8_t CONF_KEY = 0xA7;
 	uint16_t CHECKSUM = 0;
@@ -1074,13 +1072,13 @@ void eps_save_configuration(SAVE_CONFIGURATION* temp){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
+	result_dest->status = rx_buf[4];
 
 }
 
 //------------------------------------------------------------------------------------------------------------------
 
-void eps_get_piu_housekeeping_data_raw(GET_PIU_HK* temp){
+void eps_get_piu_housekeeping_data_raw(GET_PIU_HK* result_dest) {
 	uint8_t CC = 0xA0;
 	uint8_t cmd_buf[4];
 
@@ -1095,93 +1093,93 @@ void eps_get_piu_housekeeping_data_raw(GET_PIU_HK* temp){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 274, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
+	result_dest->status = rx_buf[4];
 
 
-	temp->VOLT_BRDSUP = rx_buf[6];
-	temp->TEMP = rx_buf[8];
-	temp->VIP_DIST_INPUT.vipd_array[0] = rx_buf[10];
-	temp->VIP_BATT_INPUT.vipd_array[0] = rx_buf[16];
-	temp->SAT_CH_ON = rx_buf[22];
-	temp->STAT_CH_OCF = rx_buf[24];
+	result_dest->VOLT_BRDSUP = rx_buf[6];
+	result_dest->TEMP = rx_buf[8];
+	result_dest->VIP_DIST_INPUT.vipd_array[0] = rx_buf[10];
+	result_dest->VIP_BATT_INPUT.vipd_array[0] = rx_buf[16];
+	result_dest->SAT_CH_ON = rx_buf[22];
+	result_dest->STAT_CH_OCF = rx_buf[24];
 
-	temp->BAT_STAT = rx_buf[26];
+	result_dest->BAT_STAT = rx_buf[26];
 
-	temp->BAT_TEMP2 = rx_buf[28];
-	temp->BAT_TEMP3 = rx_buf[30];
+	result_dest->BAT_TEMP2 = rx_buf[28];
+	result_dest->BAT_TEMP3 = rx_buf[30];
 
-	temp->VOLT_VD0 = rx_buf[32];
-	temp->VOLT_VD1 = rx_buf[34];
-	temp->VOLT_VD2 = rx_buf[36];
+	result_dest->VOLT_VD0 = rx_buf[32];
+	result_dest->VOLT_VD1 = rx_buf[34];
+	result_dest->VOLT_VD2 = rx_buf[36];
 
-	temp->VIP_CH00.vipd_array[0] = rx_buf[38];
-	temp->VIP_CH01.vipd_array[0] = rx_buf[44];
-	temp->VIP_CH02.vipd_array[0] = rx_buf[50];
-	temp->VIP_CH03.vipd_array[0] = rx_buf[56];
-	temp->VIP_CH04.vipd_array[0] = rx_buf[62];
-	temp->VIP_CH05.vipd_array[0] = rx_buf[68];
-	temp->VIP_CH06.vipd_array[0] = rx_buf[74];
-	temp->VIP_CH07.vipd_array[0] = rx_buf[80];
-	temp->VIP_CH08.vipd_array[0] = rx_buf[86];
+	result_dest->VIP_CH00.vipd_array[0] = rx_buf[38];
+	result_dest->VIP_CH01.vipd_array[0] = rx_buf[44];
+	result_dest->VIP_CH02.vipd_array[0] = rx_buf[50];
+	result_dest->VIP_CH03.vipd_array[0] = rx_buf[56];
+	result_dest->VIP_CH04.vipd_array[0] = rx_buf[62];
+	result_dest->VIP_CH05.vipd_array[0] = rx_buf[68];
+	result_dest->VIP_CH06.vipd_array[0] = rx_buf[74];
+	result_dest->VIP_CH07.vipd_array[0] = rx_buf[80];
+	result_dest->VIP_CH08.vipd_array[0] = rx_buf[86];
 
-	temp->CC1.VOLT_IN_MPPT = rx_buf[92];
-	temp->CC1.CURR_IN_MPPT = rx_buf[94];
-	temp->CC1.VOLT_OU_MPPT = rx_buf[96];
-	temp->CC1.VOLT_OU_MPPT = rx_buf[98];
+	result_dest->CC1.VOLT_IN_MPPT = rx_buf[92];
+	result_dest->CC1.CURR_IN_MPPT = rx_buf[94];
+	result_dest->CC1.VOLT_OU_MPPT = rx_buf[96];
+	result_dest->CC1.VOLT_OU_MPPT = rx_buf[98];
 
-	temp->CC2.VOLT_IN_MPPT = rx_buf[100];
-	temp->CC2.CURR_IN_MPPT = rx_buf[102];
-	temp->CC2.VOLT_OU_MPPT = rx_buf[104];
-	temp->CC2.VOLT_OU_MPPT = rx_buf[106];
+	result_dest->CC2.VOLT_IN_MPPT = rx_buf[100];
+	result_dest->CC2.CURR_IN_MPPT = rx_buf[102];
+	result_dest->CC2.VOLT_OU_MPPT = rx_buf[104];
+	result_dest->CC2.VOLT_OU_MPPT = rx_buf[106];
 
-	temp->CC3.VOLT_IN_MPPT = rx_buf[108];
-	temp->CC3.CURR_IN_MPPT = rx_buf[110];
-	temp->CC3.VOLT_OU_MPPT = rx_buf[112];
-	temp->CC3.VOLT_OU_MPPT = rx_buf[114];
+	result_dest->CC3.VOLT_IN_MPPT = rx_buf[108];
+	result_dest->CC3.CURR_IN_MPPT = rx_buf[110];
+	result_dest->CC3.VOLT_OU_MPPT = rx_buf[112];
+	result_dest->CC3.VOLT_OU_MPPT = rx_buf[114];
 
-	temp->VIP_CH09.vipd_array[0] = rx_buf[116];
-	temp->VIP_CH10.vipd_array[0] = rx_buf[122];
-	temp->VIP_CH11.vipd_array[0] = rx_buf[128];
-	temp->VIP_CH12.vipd_array[0] = rx_buf[134];
-	temp->VIP_CH13.vipd_array[0] = rx_buf[140];
-	temp->VIP_CH14.vipd_array[0] = rx_buf[146];
-	temp->VIP_CH15.vipd_array[0] = rx_buf[152];
+	result_dest->VIP_CH09.vipd_array[0] = rx_buf[116];
+	result_dest->VIP_CH10.vipd_array[0] = rx_buf[122];
+	result_dest->VIP_CH11.vipd_array[0] = rx_buf[128];
+	result_dest->VIP_CH12.vipd_array[0] = rx_buf[134];
+	result_dest->VIP_CH13.vipd_array[0] = rx_buf[140];
+	result_dest->VIP_CH14.vipd_array[0] = rx_buf[146];
+	result_dest->VIP_CH15.vipd_array[0] = rx_buf[152];
 
-	temp->CC4.VOLT_IN_MPPT = rx_buf[158];
-	temp->CC4.CURR_IN_MPPT = rx_buf[160];
-	temp->CC4.VOLT_OU_MPPT = rx_buf[162];
-	temp->CC4.VOLT_OU_MPPT = rx_buf[164];
+	result_dest->CC4.VOLT_IN_MPPT = rx_buf[158];
+	result_dest->CC4.CURR_IN_MPPT = rx_buf[160];
+	result_dest->CC4.VOLT_OU_MPPT = rx_buf[162];
+	result_dest->CC4.VOLT_OU_MPPT = rx_buf[164];
 
-	temp->CC5.VOLT_IN_MPPT = rx_buf[166];
-	temp->CC5.CURR_IN_MPPT = rx_buf[168];
-	temp->CC5.VOLT_OU_MPPT = rx_buf[170];
-	temp->CC5.VOLT_OU_MPPT = rx_buf[172];
+	result_dest->CC5.VOLT_IN_MPPT = rx_buf[166];
+	result_dest->CC5.CURR_IN_MPPT = rx_buf[168];
+	result_dest->CC5.VOLT_OU_MPPT = rx_buf[170];
+	result_dest->CC5.VOLT_OU_MPPT = rx_buf[172];
 
-	temp->STAT_CH_EXT_ON = rx_buf[174];
-	temp->STAT_CH_EXT_OCF = rx_buf[176];
+	result_dest->STAT_CH_EXT_ON = rx_buf[174];
+	result_dest->STAT_CH_EXT_OCF = rx_buf[176];
 
-	temp->VIP_CH16.vipd_array[0] = rx_buf[178];
-	temp->VIP_CH17.vipd_array[0] = rx_buf[184];
-	temp->VIP_CH18.vipd_array[0] = rx_buf[190];
-	temp->VIP_CH19.vipd_array[0] = rx_buf[196];
-	temp->VIP_CH20.vipd_array[0] = rx_buf[202];
-	temp->VIP_CH21.vipd_array[0] = rx_buf[208];
-	temp->VIP_CH22.vipd_array[0] = rx_buf[214];
-	temp->VIP_CH23.vipd_array[0] = rx_buf[220];
-	temp->VIP_CH24.vipd_array[0] = rx_buf[226];
-	temp->VIP_CH25.vipd_array[0] = rx_buf[232];
-	temp->VIP_CH26.vipd_array[0] = rx_buf[238];
-	temp->VIP_CH27.vipd_array[0] = rx_buf[244];
-	temp->VIP_CH28.vipd_array[0] = rx_buf[250];
-	temp->VIP_CH29.vipd_array[0] = rx_buf[256];
-	temp->VIP_CH30.vipd_array[0] = rx_buf[262];
-	temp->VIP_CH31.vipd_array[0] = rx_buf[268];
+	result_dest->VIP_CH16.vipd_array[0] = rx_buf[178];
+	result_dest->VIP_CH17.vipd_array[0] = rx_buf[184];
+	result_dest->VIP_CH18.vipd_array[0] = rx_buf[190];
+	result_dest->VIP_CH19.vipd_array[0] = rx_buf[196];
+	result_dest->VIP_CH20.vipd_array[0] = rx_buf[202];
+	result_dest->VIP_CH21.vipd_array[0] = rx_buf[208];
+	result_dest->VIP_CH22.vipd_array[0] = rx_buf[214];
+	result_dest->VIP_CH23.vipd_array[0] = rx_buf[220];
+	result_dest->VIP_CH24.vipd_array[0] = rx_buf[226];
+	result_dest->VIP_CH25.vipd_array[0] = rx_buf[232];
+	result_dest->VIP_CH26.vipd_array[0] = rx_buf[238];
+	result_dest->VIP_CH27.vipd_array[0] = rx_buf[244];
+	result_dest->VIP_CH28.vipd_array[0] = rx_buf[250];
+	result_dest->VIP_CH29.vipd_array[0] = rx_buf[256];
+	result_dest->VIP_CH30.vipd_array[0] = rx_buf[262];
+	result_dest->VIP_CH31.vipd_array[0] = rx_buf[268];
 
 }
 
 //-----------------------------------------------------------------------------------------------------
 
-void eps_get_piu_housekeeping_data_eng(GET_PIU_HK* temp){
+void eps_get_piu_housekeeping_data_eng(GET_PIU_HK* result_dest) {
 	uint8_t CC = 0xA2;
 	uint8_t cmd_buf[4];
 
@@ -1196,93 +1194,93 @@ void eps_get_piu_housekeeping_data_eng(GET_PIU_HK* temp){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 274, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
+	result_dest->status = rx_buf[4];
 
 
-	temp->VOLT_BRDSUP = rx_buf[6];
-	temp->TEMP = rx_buf[8];
-	temp->VIP_DIST_INPUT.vipd_array[0] = rx_buf[10];
-	temp->VIP_BATT_INPUT.vipd_array[0] = rx_buf[16];
-	temp->SAT_CH_ON = rx_buf[22];
-	temp->STAT_CH_OCF = rx_buf[24];
+	result_dest->VOLT_BRDSUP = rx_buf[6];
+	result_dest->TEMP = rx_buf[8];
+	result_dest->VIP_DIST_INPUT.vipd_array[0] = rx_buf[10];
+	result_dest->VIP_BATT_INPUT.vipd_array[0] = rx_buf[16];
+	result_dest->SAT_CH_ON = rx_buf[22];
+	result_dest->STAT_CH_OCF = rx_buf[24];
 
-	temp->BAT_STAT = rx_buf[26];
+	result_dest->BAT_STAT = rx_buf[26];
 
-	temp->BAT_TEMP2 = rx_buf[28];
-	temp->BAT_TEMP3 = rx_buf[30];
+	result_dest->BAT_TEMP2 = rx_buf[28];
+	result_dest->BAT_TEMP3 = rx_buf[30];
 
-	temp->VOLT_VD0 = rx_buf[32];
-	temp->VOLT_VD1 = rx_buf[34];
-	temp->VOLT_VD2 = rx_buf[36];
+	result_dest->VOLT_VD0 = rx_buf[32];
+	result_dest->VOLT_VD1 = rx_buf[34];
+	result_dest->VOLT_VD2 = rx_buf[36];
 
-	temp->VIP_CH00.vipd_array[0] = rx_buf[38];
-	temp->VIP_CH01.vipd_array[0] = rx_buf[44];
-	temp->VIP_CH02.vipd_array[0] = rx_buf[50];
-	temp->VIP_CH03.vipd_array[0] = rx_buf[56];
-	temp->VIP_CH04.vipd_array[0] = rx_buf[62];
-	temp->VIP_CH05.vipd_array[0] = rx_buf[68];
-	temp->VIP_CH06.vipd_array[0] = rx_buf[74];
-	temp->VIP_CH07.vipd_array[0] = rx_buf[80];
-	temp->VIP_CH08.vipd_array[0] = rx_buf[86];
+	result_dest->VIP_CH00.vipd_array[0] = rx_buf[38];
+	result_dest->VIP_CH01.vipd_array[0] = rx_buf[44];
+	result_dest->VIP_CH02.vipd_array[0] = rx_buf[50];
+	result_dest->VIP_CH03.vipd_array[0] = rx_buf[56];
+	result_dest->VIP_CH04.vipd_array[0] = rx_buf[62];
+	result_dest->VIP_CH05.vipd_array[0] = rx_buf[68];
+	result_dest->VIP_CH06.vipd_array[0] = rx_buf[74];
+	result_dest->VIP_CH07.vipd_array[0] = rx_buf[80];
+	result_dest->VIP_CH08.vipd_array[0] = rx_buf[86];
 
-	temp->CC1.VOLT_IN_MPPT = rx_buf[92];
-	temp->CC1.CURR_IN_MPPT = rx_buf[94];
-	temp->CC1.VOLT_OU_MPPT = rx_buf[96];
-	temp->CC1.VOLT_OU_MPPT = rx_buf[98];
+	result_dest->CC1.VOLT_IN_MPPT = rx_buf[92];
+	result_dest->CC1.CURR_IN_MPPT = rx_buf[94];
+	result_dest->CC1.VOLT_OU_MPPT = rx_buf[96];
+	result_dest->CC1.VOLT_OU_MPPT = rx_buf[98];
 
-	temp->CC2.VOLT_IN_MPPT = rx_buf[100];
-	temp->CC2.CURR_IN_MPPT = rx_buf[102];
-	temp->CC2.VOLT_OU_MPPT = rx_buf[104];
-	temp->CC2.VOLT_OU_MPPT = rx_buf[106];
+	result_dest->CC2.VOLT_IN_MPPT = rx_buf[100];
+	result_dest->CC2.CURR_IN_MPPT = rx_buf[102];
+	result_dest->CC2.VOLT_OU_MPPT = rx_buf[104];
+	result_dest->CC2.VOLT_OU_MPPT = rx_buf[106];
 
-	temp->CC3.VOLT_IN_MPPT = rx_buf[108];
-	temp->CC3.CURR_IN_MPPT = rx_buf[110];
-	temp->CC3.VOLT_OU_MPPT = rx_buf[112];
-	temp->CC3.VOLT_OU_MPPT = rx_buf[114];
+	result_dest->CC3.VOLT_IN_MPPT = rx_buf[108];
+	result_dest->CC3.CURR_IN_MPPT = rx_buf[110];
+	result_dest->CC3.VOLT_OU_MPPT = rx_buf[112];
+	result_dest->CC3.VOLT_OU_MPPT = rx_buf[114];
 
-	temp->VIP_CH09.vipd_array[0] = rx_buf[116];
-	temp->VIP_CH10.vipd_array[0] = rx_buf[122];
-	temp->VIP_CH11.vipd_array[0] = rx_buf[128];
-	temp->VIP_CH12.vipd_array[0] = rx_buf[134];
-	temp->VIP_CH13.vipd_array[0] = rx_buf[140];
-	temp->VIP_CH14.vipd_array[0] = rx_buf[146];
-	temp->VIP_CH15.vipd_array[0] = rx_buf[152];
+	result_dest->VIP_CH09.vipd_array[0] = rx_buf[116];
+	result_dest->VIP_CH10.vipd_array[0] = rx_buf[122];
+	result_dest->VIP_CH11.vipd_array[0] = rx_buf[128];
+	result_dest->VIP_CH12.vipd_array[0] = rx_buf[134];
+	result_dest->VIP_CH13.vipd_array[0] = rx_buf[140];
+	result_dest->VIP_CH14.vipd_array[0] = rx_buf[146];
+	result_dest->VIP_CH15.vipd_array[0] = rx_buf[152];
 
-	temp->CC4.VOLT_IN_MPPT = rx_buf[158];
-	temp->CC4.CURR_IN_MPPT = rx_buf[160];
-	temp->CC4.VOLT_OU_MPPT = rx_buf[162];
-	temp->CC4.VOLT_OU_MPPT = rx_buf[164];
+	result_dest->CC4.VOLT_IN_MPPT = rx_buf[158];
+	result_dest->CC4.CURR_IN_MPPT = rx_buf[160];
+	result_dest->CC4.VOLT_OU_MPPT = rx_buf[162];
+	result_dest->CC4.VOLT_OU_MPPT = rx_buf[164];
 
-	temp->CC5.VOLT_IN_MPPT = rx_buf[166];
-	temp->CC5.CURR_IN_MPPT = rx_buf[168];
-	temp->CC5.VOLT_OU_MPPT = rx_buf[170];
-	temp->CC5.VOLT_OU_MPPT = rx_buf[172];
+	result_dest->CC5.VOLT_IN_MPPT = rx_buf[166];
+	result_dest->CC5.CURR_IN_MPPT = rx_buf[168];
+	result_dest->CC5.VOLT_OU_MPPT = rx_buf[170];
+	result_dest->CC5.VOLT_OU_MPPT = rx_buf[172];
 
-	temp->STAT_CH_EXT_ON = rx_buf[174];
-	temp->STAT_CH_EXT_OCF = rx_buf[176];
+	result_dest->STAT_CH_EXT_ON = rx_buf[174];
+	result_dest->STAT_CH_EXT_OCF = rx_buf[176];
 
-	temp->VIP_CH16.vipd_array[0] = rx_buf[178];
-	temp->VIP_CH17.vipd_array[0] = rx_buf[184];
-	temp->VIP_CH18.vipd_array[0] = rx_buf[190];
-	temp->VIP_CH19.vipd_array[0] = rx_buf[196];
-	temp->VIP_CH20.vipd_array[0] = rx_buf[202];
-	temp->VIP_CH21.vipd_array[0] = rx_buf[208];
-	temp->VIP_CH22.vipd_array[0] = rx_buf[214];
-	temp->VIP_CH23.vipd_array[0] = rx_buf[220];
-	temp->VIP_CH24.vipd_array[0] = rx_buf[226];
-	temp->VIP_CH25.vipd_array[0] = rx_buf[232];
-	temp->VIP_CH26.vipd_array[0] = rx_buf[238];
-	temp->VIP_CH27.vipd_array[0] = rx_buf[244];
-	temp->VIP_CH28.vipd_array[0] = rx_buf[250];
-	temp->VIP_CH29.vipd_array[0] = rx_buf[256];
-	temp->VIP_CH30.vipd_array[0] = rx_buf[262];
-	temp->VIP_CH31.vipd_array[0] = rx_buf[268];
+	result_dest->VIP_CH16.vipd_array[0] = rx_buf[178];
+	result_dest->VIP_CH17.vipd_array[0] = rx_buf[184];
+	result_dest->VIP_CH18.vipd_array[0] = rx_buf[190];
+	result_dest->VIP_CH19.vipd_array[0] = rx_buf[196];
+	result_dest->VIP_CH20.vipd_array[0] = rx_buf[202];
+	result_dest->VIP_CH21.vipd_array[0] = rx_buf[208];
+	result_dest->VIP_CH22.vipd_array[0] = rx_buf[214];
+	result_dest->VIP_CH23.vipd_array[0] = rx_buf[220];
+	result_dest->VIP_CH24.vipd_array[0] = rx_buf[226];
+	result_dest->VIP_CH25.vipd_array[0] = rx_buf[232];
+	result_dest->VIP_CH26.vipd_array[0] = rx_buf[238];
+	result_dest->VIP_CH27.vipd_array[0] = rx_buf[244];
+	result_dest->VIP_CH28.vipd_array[0] = rx_buf[250];
+	result_dest->VIP_CH29.vipd_array[0] = rx_buf[256];
+	result_dest->VIP_CH30.vipd_array[0] = rx_buf[262];
+	result_dest->VIP_CH31.vipd_array[0] = rx_buf[268];
 
 }
 
 //------------------------------------------------------------------------------------------
 
-void eps_get_piu_housekeeping_data_running_average(GET_PIU_HK* temp){
+void eps_get_piu_housekeeping_data_running_average(GET_PIU_HK* result_dest) {
 	uint8_t CC = 0xA4;
 	uint8_t cmd_buf[4];
 
@@ -1297,93 +1295,93 @@ void eps_get_piu_housekeeping_data_running_average(GET_PIU_HK* temp){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 274, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
+	result_dest->status = rx_buf[4];
 
 
-	temp->VOLT_BRDSUP = rx_buf[6];
-	temp->TEMP = rx_buf[8];
-	temp->VIP_DIST_INPUT.vipd_array[0] = rx_buf[10];
-	temp->VIP_BATT_INPUT.vipd_array[0] = rx_buf[16];
-	temp->SAT_CH_ON = rx_buf[22];
-	temp->STAT_CH_OCF = rx_buf[24];
+	result_dest->VOLT_BRDSUP = rx_buf[6];
+	result_dest->TEMP = rx_buf[8];
+	result_dest->VIP_DIST_INPUT.vipd_array[0] = rx_buf[10];
+	result_dest->VIP_BATT_INPUT.vipd_array[0] = rx_buf[16];
+	result_dest->SAT_CH_ON = rx_buf[22];
+	result_dest->STAT_CH_OCF = rx_buf[24];
 
-	temp->BAT_STAT = rx_buf[26];
+	result_dest->BAT_STAT = rx_buf[26];
 
-	temp->BAT_TEMP2 = rx_buf[28];
-	temp->BAT_TEMP3 = rx_buf[30];
+	result_dest->BAT_TEMP2 = rx_buf[28];
+	result_dest->BAT_TEMP3 = rx_buf[30];
 
-	temp->VOLT_VD0 = rx_buf[32];
-	temp->VOLT_VD1 = rx_buf[34];
-	temp->VOLT_VD2 = rx_buf[36];
+	result_dest->VOLT_VD0 = rx_buf[32];
+	result_dest->VOLT_VD1 = rx_buf[34];
+	result_dest->VOLT_VD2 = rx_buf[36];
 
-	temp->VIP_CH00.vipd_array[0] = rx_buf[38];
-	temp->VIP_CH01.vipd_array[0] = rx_buf[44];
-	temp->VIP_CH02.vipd_array[0] = rx_buf[50];
-	temp->VIP_CH03.vipd_array[0] = rx_buf[56];
-	temp->VIP_CH04.vipd_array[0] = rx_buf[62];
-	temp->VIP_CH05.vipd_array[0] = rx_buf[68];
-	temp->VIP_CH06.vipd_array[0] = rx_buf[74];
-	temp->VIP_CH07.vipd_array[0] = rx_buf[80];
-	temp->VIP_CH08.vipd_array[0] = rx_buf[86];
+	result_dest->VIP_CH00.vipd_array[0] = rx_buf[38];
+	result_dest->VIP_CH01.vipd_array[0] = rx_buf[44];
+	result_dest->VIP_CH02.vipd_array[0] = rx_buf[50];
+	result_dest->VIP_CH03.vipd_array[0] = rx_buf[56];
+	result_dest->VIP_CH04.vipd_array[0] = rx_buf[62];
+	result_dest->VIP_CH05.vipd_array[0] = rx_buf[68];
+	result_dest->VIP_CH06.vipd_array[0] = rx_buf[74];
+	result_dest->VIP_CH07.vipd_array[0] = rx_buf[80];
+	result_dest->VIP_CH08.vipd_array[0] = rx_buf[86];
 
-	temp->CC1.VOLT_IN_MPPT = rx_buf[92];
-	temp->CC1.CURR_IN_MPPT = rx_buf[94];
-	temp->CC1.VOLT_OU_MPPT = rx_buf[96];
-	temp->CC1.VOLT_OU_MPPT = rx_buf[98];
+	result_dest->CC1.VOLT_IN_MPPT = rx_buf[92];
+	result_dest->CC1.CURR_IN_MPPT = rx_buf[94];
+	result_dest->CC1.VOLT_OU_MPPT = rx_buf[96];
+	result_dest->CC1.VOLT_OU_MPPT = rx_buf[98];
 
-	temp->CC2.VOLT_IN_MPPT = rx_buf[100];
-	temp->CC2.CURR_IN_MPPT = rx_buf[102];
-	temp->CC2.VOLT_OU_MPPT = rx_buf[104];
-	temp->CC2.VOLT_OU_MPPT = rx_buf[106];
+	result_dest->CC2.VOLT_IN_MPPT = rx_buf[100];
+	result_dest->CC2.CURR_IN_MPPT = rx_buf[102];
+	result_dest->CC2.VOLT_OU_MPPT = rx_buf[104];
+	result_dest->CC2.VOLT_OU_MPPT = rx_buf[106];
 
-	temp->CC3.VOLT_IN_MPPT = rx_buf[108];
-	temp->CC3.CURR_IN_MPPT = rx_buf[110];
-	temp->CC3.VOLT_OU_MPPT = rx_buf[112];
-	temp->CC3.VOLT_OU_MPPT = rx_buf[114];
+	result_dest->CC3.VOLT_IN_MPPT = rx_buf[108];
+	result_dest->CC3.CURR_IN_MPPT = rx_buf[110];
+	result_dest->CC3.VOLT_OU_MPPT = rx_buf[112];
+	result_dest->CC3.VOLT_OU_MPPT = rx_buf[114];
 
-	temp->VIP_CH09.vipd_array[0] = rx_buf[116];
-	temp->VIP_CH10.vipd_array[0] = rx_buf[122];
-	temp->VIP_CH11.vipd_array[0] = rx_buf[128];
-	temp->VIP_CH12.vipd_array[0] = rx_buf[134];
-	temp->VIP_CH13.vipd_array[0] = rx_buf[140];
-	temp->VIP_CH14.vipd_array[0] = rx_buf[146];
-	temp->VIP_CH15.vipd_array[0] = rx_buf[152];
+	result_dest->VIP_CH09.vipd_array[0] = rx_buf[116];
+	result_dest->VIP_CH10.vipd_array[0] = rx_buf[122];
+	result_dest->VIP_CH11.vipd_array[0] = rx_buf[128];
+	result_dest->VIP_CH12.vipd_array[0] = rx_buf[134];
+	result_dest->VIP_CH13.vipd_array[0] = rx_buf[140];
+	result_dest->VIP_CH14.vipd_array[0] = rx_buf[146];
+	result_dest->VIP_CH15.vipd_array[0] = rx_buf[152];
 
-	temp->CC4.VOLT_IN_MPPT = rx_buf[158];
-	temp->CC4.CURR_IN_MPPT = rx_buf[160];
-	temp->CC4.VOLT_OU_MPPT = rx_buf[162];
-	temp->CC4.VOLT_OU_MPPT = rx_buf[164];
+	result_dest->CC4.VOLT_IN_MPPT = rx_buf[158];
+	result_dest->CC4.CURR_IN_MPPT = rx_buf[160];
+	result_dest->CC4.VOLT_OU_MPPT = rx_buf[162];
+	result_dest->CC4.VOLT_OU_MPPT = rx_buf[164];
 
-	temp->CC5.VOLT_IN_MPPT = rx_buf[166];
-	temp->CC5.CURR_IN_MPPT = rx_buf[168];
-	temp->CC5.VOLT_OU_MPPT = rx_buf[170];
-	temp->CC5.VOLT_OU_MPPT = rx_buf[172];
+	result_dest->CC5.VOLT_IN_MPPT = rx_buf[166];
+	result_dest->CC5.CURR_IN_MPPT = rx_buf[168];
+	result_dest->CC5.VOLT_OU_MPPT = rx_buf[170];
+	result_dest->CC5.VOLT_OU_MPPT = rx_buf[172];
 
-	temp->STAT_CH_EXT_ON = rx_buf[174];
-	temp->STAT_CH_EXT_OCF = rx_buf[176];
+	result_dest->STAT_CH_EXT_ON = rx_buf[174];
+	result_dest->STAT_CH_EXT_OCF = rx_buf[176];
 
-	temp->VIP_CH16.vipd_array[0] = rx_buf[178];
-	temp->VIP_CH17.vipd_array[0] = rx_buf[184];
-	temp->VIP_CH18.vipd_array[0] = rx_buf[190];
-	temp->VIP_CH19.vipd_array[0] = rx_buf[196];
-	temp->VIP_CH20.vipd_array[0] = rx_buf[202];
-	temp->VIP_CH21.vipd_array[0] = rx_buf[208];
-	temp->VIP_CH22.vipd_array[0] = rx_buf[214];
-	temp->VIP_CH23.vipd_array[0] = rx_buf[220];
-	temp->VIP_CH24.vipd_array[0] = rx_buf[226];
-	temp->VIP_CH25.vipd_array[0] = rx_buf[232];
-	temp->VIP_CH26.vipd_array[0] = rx_buf[238];
-	temp->VIP_CH27.vipd_array[0] = rx_buf[244];
-	temp->VIP_CH28.vipd_array[0] = rx_buf[250];
-	temp->VIP_CH29.vipd_array[0] = rx_buf[256];
-	temp->VIP_CH30.vipd_array[0] = rx_buf[262];
-	temp->VIP_CH31.vipd_array[0] = rx_buf[268];
+	result_dest->VIP_CH16.vipd_array[0] = rx_buf[178];
+	result_dest->VIP_CH17.vipd_array[0] = rx_buf[184];
+	result_dest->VIP_CH18.vipd_array[0] = rx_buf[190];
+	result_dest->VIP_CH19.vipd_array[0] = rx_buf[196];
+	result_dest->VIP_CH20.vipd_array[0] = rx_buf[202];
+	result_dest->VIP_CH21.vipd_array[0] = rx_buf[208];
+	result_dest->VIP_CH22.vipd_array[0] = rx_buf[214];
+	result_dest->VIP_CH23.vipd_array[0] = rx_buf[220];
+	result_dest->VIP_CH24.vipd_array[0] = rx_buf[226];
+	result_dest->VIP_CH25.vipd_array[0] = rx_buf[232];
+	result_dest->VIP_CH26.vipd_array[0] = rx_buf[238];
+	result_dest->VIP_CH27.vipd_array[0] = rx_buf[244];
+	result_dest->VIP_CH28.vipd_array[0] = rx_buf[250];
+	result_dest->VIP_CH29.vipd_array[0] = rx_buf[256];
+	result_dest->VIP_CH30.vipd_array[0] = rx_buf[262];
+	result_dest->VIP_CH31.vipd_array[0] = rx_buf[268];
 
 }
 
 //--------------------------------------------------------------------------------------------------
 
-void eps_correct_time(CORRECT_TIME_S* temp, int32_t time_correction){
+void eps_correct_time(CORRECT_TIME_S* result_dest, int32_t time_correction) {
 	uint8_t CC = 0xC4;
 	//Time correction in unix time (positive numbers added to time, negative values subtracted)
 	int32_t CORRECTION = time_correction;
@@ -1403,13 +1401,13 @@ void eps_correct_time(CORRECT_TIME_S* temp, int32_t time_correction){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
+	result_dest->status = rx_buf[4];
 
 }
 
 //------------------------------------------------------------------------------------------------------
 
-void eps_zero_reset_cause_counters(ZERO_RESET_CAUSE_COUNTERS_S* temp){
+void eps_zero_reset_cause_counters(ZERO_RESET_CAUSE_COUNTERS_S* result_dest) {
 	uint8_t CC = 0xC6;
 	//Time correction in unix time (positive numbers added to time, negative values subtracted)
 	int32_t ZERO_KEY = 0xA7;
@@ -1429,7 +1427,7 @@ void eps_zero_reset_cause_counters(ZERO_RESET_CAUSE_COUNTERS_S* temp){
 
 	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
 
-	temp->status = rx_buf[4];
+	result_dest->status = rx_buf[4];
 
 }
 

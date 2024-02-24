@@ -32,6 +32,14 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include <string.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "debug_helpers.h"
+#include "eps_driver.h"
+
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
