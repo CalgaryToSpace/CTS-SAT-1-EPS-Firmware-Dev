@@ -47,12 +47,13 @@ uint8_t eps_send_cmd_get_response(
 	// success when rx_buf[0] != 0xFF)
 	uint32_t start_rx_time_ms = get_uptime_ms();
 	uint8_t had_successful_rx = 0;
+	uint16_t rx_retry_count = 0;
 	while (get_uptime_ms() - start_rx_time_ms < EPS_MAX_RESPONSE_POLL_TIME_MS) {
 		HAL_StatusTypeDef rx_status = HAL_I2C_Master_Receive(
 				&hi2c1, EPS_I2C_ADDR, rx_buf, rx_buf_len, 50);
 		if (rx_status != HAL_OK) {
 			// this is a bad an unexpected error; return "there's a problem"
-			// TODO: consider making this a retry case as well
+			// TODO: consider making this a retry case as well, as it happens randomly sometimes
 			if (EPS_ENABLE_DEBUG_PRINT) {
 				char msg[200];
 				sprintf(msg, "OBC->EPS ERROR: rx_status != HAL_OK (%d)\n", rx_status);
@@ -64,15 +65,18 @@ uint8_t eps_send_cmd_get_response(
 		if (rx_buf[0] == 0xFF) {
 			// quintessential "not ready" response; try again
 			delay_ms(5);
-			if (EPS_ENABLE_DEBUG_PRINT) {
-				debug_uart_print_str("OBC->EPS: not ready, retrying...\n");
-			}
+//			if (EPS_ENABLE_DEBUG_PRINT) { // commented out because we print the retry count
+//				debug_uart_print_str("EPS->OBC: not ready, retrying...\n");
+//			}
+			rx_retry_count++;
 			continue;
 		}
 		else {
 			had_successful_rx = 1;
 			if (EPS_ENABLE_DEBUG_PRINT) {
-				debug_uart_print_str("OBC->EPS: success after retries...\n");
+				char msg[100];
+				sprintf(msg, "EPS->OBC: success after %d rx retries...\n", rx_retry_count);
+				debug_uart_print_str(msg);
 			}
 			break;
 		}
@@ -80,6 +84,11 @@ uint8_t eps_send_cmd_get_response(
 
 
 	if (had_successful_rx == 0) {
+		if (EPS_ENABLE_DEBUG_PRINT) {
+			char msg[100];
+			sprintf(msg, "EPS->OBC: failed rx after %d rx retries\n", rx_retry_count);
+			debug_uart_print_str(msg);
+		}
 		return 4;
 	}
 
@@ -143,8 +152,8 @@ void eps_debug_uart_print_sys_stat(eps_result_sys_stat_t* sys_stat) {
 	char msg1[365];
 	sprintf(
 	    msg1,
-	    "System status: %d, Mode: %d, Configuration: %d, Reset cause: %d, Uptime: %lu, Error: %d, RC count pwron: %u, RC count wdg: %d, RC count cmd: %d, RC count mcu: %d, RC count emlopo: %d, Prevcmd elapsed: %d, Unix time: %lu, Unix year: %d, Unix month: %d, Unix day: %d, Unix hour: %d, Unix minute: %d, Unix second: %d\n",
-	    sys_stat->status, sys_stat->mode, sys_stat->conf, sys_stat->reset_cause, sys_stat->uptime, sys_stat->error, sys_stat->rc_cnt_pwron, sys_stat->rc_cnt_wdg, sys_stat->rc_cnt_cmd, sys_stat->rc_cnt_mcu, sys_stat->rc_cnt_emlopo, sys_stat->prevcmd_elapsed, sys_stat->unix_time, sys_stat->unix_year, sys_stat->unix_month, sys_stat->unix_day, sys_stat->unix_hour, sys_stat->unix_minute, sys_stat->unix_second
+	    "Mode: %d, Configuration: %d, Reset cause: %d, Uptime: %lu sec, Error: %d, rst_cnt_pwron: %u, rst_cnt_wdg: %d, rst_cnt_cmd: %d, rst_cnt_mcu: %d, rst_cnt_emlopo: %d, Prevcmd elapsed: %d, Unix time: %lu, Unix year: %d, Unix month: %d, Unix day: %d, Unix hour: %d, Unix minute: %d, Unix second: %d\n",
+	    sys_stat->mode, sys_stat->conf, sys_stat->reset_cause, sys_stat->uptime_sec, sys_stat->error, sys_stat->rst_cnt_pwron, sys_stat->rst_cnt_wdg, sys_stat->rst_cnt_cmd, sys_stat->rst_cnt_mcu, sys_stat->rst_cnt_emlopo, sys_stat->prevcmd_elapsed, sys_stat->unix_time, sys_stat->unix_year, sys_stat->unix_month, sys_stat->unix_day, sys_stat->unix_hour, sys_stat->unix_minute, sys_stat->unix_second
 	);
 
 	debug_uart_print_str(msg1);
@@ -379,17 +388,16 @@ uint8_t eps_get_sys_status(eps_result_sys_stat_t* result_dest) {
 		return comms_err;
 	}
 
-	result_dest->status = rx_buf[4];
 	result_dest->mode = rx_buf[5];
 	result_dest->conf = rx_buf[6];
 	result_dest->reset_cause = rx_buf[7];
-	result_dest->uptime = rx_buf[8] | (rx_buf[9]<<8) | (rx_buf[10]<<16) | (rx_buf[11]<<24);
+	result_dest->uptime_sec = rx_buf[8] | (rx_buf[9]<<8) | (rx_buf[10]<<16) | (rx_buf[11]<<24);
 	result_dest->error = rx_buf[12]; // FIXME: multi-byte values
-	result_dest->rc_cnt_pwron = rx_buf[14];
-	result_dest->rc_cnt_wdg = rx_buf[16];
-	result_dest->rc_cnt_cmd = rx_buf[18];
-	result_dest->rc_cnt_mcu = rx_buf[20];
-	result_dest->rc_cnt_emlopo = rx_buf[22];
+	result_dest->rst_cnt_pwron = rx_buf[14];
+	result_dest->rst_cnt_wdg = rx_buf[16];
+	result_dest->rst_cnt_cmd = rx_buf[18];
+	result_dest->rst_cnt_mcu = rx_buf[20];
+	result_dest->rst_cnt_emlopo = rx_buf[22];
 	result_dest->prevcmd_elapsed = rx_buf[24];
 	result_dest->unix_time = rx_buf[26];
 	result_dest->unix_year = rx_buf[30];

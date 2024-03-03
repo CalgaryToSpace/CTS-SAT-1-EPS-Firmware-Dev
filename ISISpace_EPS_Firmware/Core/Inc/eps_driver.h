@@ -93,17 +93,16 @@ typedef struct conditioning_channel_datatype {
 
 
 typedef struct {
-	uint8_t status;
 	uint8_t mode;
 	uint8_t conf;
 	uint8_t reset_cause;
-	uint32_t uptime;
+	uint32_t uptime_sec;
 	uint16_t error;
-	uint16_t rc_cnt_pwron;
-	uint16_t rc_cnt_wdg;
-	uint16_t rc_cnt_cmd;
-	uint16_t rc_cnt_mcu;
-	uint16_t rc_cnt_emlopo;
+	uint16_t rst_cnt_pwron;
+	uint16_t rst_cnt_wdg;
+	uint16_t rst_cnt_cmd;
+	uint16_t rst_cnt_mcu;
+	uint16_t rst_cnt_emlopo;
 	uint16_t prevcmd_elapsed;
 	uint32_t unix_time;
 	uint8_t unix_year;
