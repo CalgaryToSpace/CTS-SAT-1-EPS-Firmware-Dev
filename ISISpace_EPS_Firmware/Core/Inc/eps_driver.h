@@ -430,10 +430,7 @@ void eps_switch_to_safety_mode();
 //This function is used for switching the Power System into Safety mode. The user does not need to input any parameters into the function, therefore it is void.
 //This function doesn't need to return anything.
 
-void eps_get_sys_status(eps_result_sys_stat_t* result_dest);
-//20230418 Frank:
-//This function sends a command to the power system to receive the current status of the Power system as a unsigned 8 bit integer.
-//No parameters need to be send to the function, so it is void.
+uint8_t eps_get_sys_status(eps_result_sys_stat_t* result_dest);
 
 void eps_get_pdu_piu_overcurrent_fault_state(PDU_PIU_OFS* result_dest);
 // Prepare the response buffer with output bus over current events. Over current fault counters are incremented each time a bus is latched off due to an overcurrent event. (Overcurrent event is when normal load current is exceeded)

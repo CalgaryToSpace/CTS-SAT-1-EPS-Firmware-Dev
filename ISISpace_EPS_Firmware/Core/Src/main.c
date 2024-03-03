@@ -145,23 +145,34 @@ int main(void)
     // blink LED
     HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
 
-    eps_result_sys_stat_t sys_stat;
+    // I2C scan
+    debug_i2c_scan();
 
-    debug_uart_print_str("Fetching system status info...\n");
-    eps_get_sys_status(&sys_stat);
 
-    debug_uart_print_str("UART printing system status info...\n");
-    eps_debug_uart_print_sys_stat(&sys_stat);
+    debug_uart_print_str("Executing eps_no_operation()...\n");
+    uint8_t noop_status = eps_no_operation();
 
-    debug_uart_print_str("Fetching and printing CH0 info...\n");
-    eps_debug_get_and_print_channel_stats(0);
+    debug_uart_print_str("Executing eps_watchdog()...\n");
+    eps_watchdog();
 
-    debug_uart_print_str("Fetching and printing CH1 info...\n");
-    eps_debug_get_and_print_channel_stats(1);
+//    eps_result_sys_stat_t sys_stat;
+//    debug_uart_print_str("Fetching system status info...\n");
+//    uint8_t sys_stat_err = eps_get_sys_status(&sys_stat);
+//
+//    if (sys_stat_err == 0) {
+//		debug_uart_print_str("System status info:\n");
+//		eps_debug_uart_print_sys_stat(&sys_stat);
+//    }
+
+//    debug_uart_print_str("Fetching and printing CH0 info...\n");
+//    eps_debug_get_and_print_channel_stats(0);
+//
+//    debug_uart_print_str("Fetching and printing CH1 info...\n");
+//    eps_debug_get_and_print_channel_stats(1);
 
     debug_uart_print_str("End of while loop\n\n");
 
-    HAL_Delay(3000);
+    HAL_Delay(10000);
   }
   /* USER CODE END 3 */
 }

@@ -7,12 +7,103 @@
 
 
 #include "eps_driver.h"
+#include "timing_helpers.h"
 
-const uint8_t EPS_I2C_ADDR = 0x30; // EPS I2C address
+
+// Note: EPS_I2C_ADDR is left-shifted by 1 to be compatible with the HAL_I2C functions
+const uint8_t EPS_I2C_ADDR = (0x20 << 1); // EPS I2C address
 
 const uint8_t EPS_COMMAND_STID = 0x1A; // "System Type Identifier (STID)" (Software ICD, page 17)
 const uint8_t EPS_COMMAND_IVID = 0x07; // "Interface Version Identifier (IVID)" (Software ICD, page 18)
-const uint8_t EPS_COMMAND_BID = 0x20; // "Board Identifier (BID)" (Software ICD, page 20)
+const uint8_t EPS_COMMAND_BID = 0x01; // "Board Identifier (BID)" (Software ICD, page 20)
+
+const uint8_t EPS_ENABLE_DEBUG_PRINT = 1; // 0 to disable
+
+const uint32_t EPS_MAX_RESPONSE_POLL_TIME_MS = 100;
+
+uint8_t eps_send_cmd_get_response(
+		uint8_t* cmd_buf, uint8_t cmd_buf_len, uint8_t* rx_buf, uint8_t rx_buf_len) {
+
+	// ASSERT: rx_buf_len must be >= 5 for all commands. Raise error if it's less.
+	if (rx_buf_len < 5) return 1;
+
+	if (EPS_ENABLE_DEBUG_PRINT) {
+		debug_uart_print_str("OBC->EPS: ");
+		debug_uart_print_array_hex(cmd_buf, cmd_buf_len, "\n");
+	}
+
+	HAL_StatusTypeDef tx_status = HAL_I2C_Master_Transmit(
+			&hi2c1, EPS_I2C_ADDR, cmd_buf, cmd_buf_len, 1000);
+	if (tx_status != HAL_OK) {
+		if (EPS_ENABLE_DEBUG_PRINT) {
+			char msg[200];
+			sprintf(msg, "OBC->EPS ERROR: tx_status != HAL_OK (%d)\n", tx_status);
+			debug_uart_print_str(msg);
+		}
+		return 2;
+	}
+
+	// poll for response
+	// success when rx_buf[0] != 0xFF)
+	uint32_t start_rx_time_ms = get_uptime_ms();
+	uint8_t had_successful_rx = 0;
+	while (get_uptime_ms() - start_rx_time_ms < EPS_MAX_RESPONSE_POLL_TIME_MS) {
+		HAL_StatusTypeDef rx_status = HAL_I2C_Master_Receive(
+				&hi2c1, EPS_I2C_ADDR, rx_buf, rx_buf_len, 50);
+		if (rx_status != HAL_OK) {
+			// this is a bad an unexpected error; return "there's a problem"
+			// TODO: consider making this a retry case as well
+			if (EPS_ENABLE_DEBUG_PRINT) {
+				char msg[200];
+				sprintf(msg, "OBC->EPS ERROR: rx_status != HAL_OK (%d)\n", rx_status);
+				debug_uart_print_str(msg);
+			}
+			return 3;
+		}
+
+		if (rx_buf[0] == 0xFF) {
+			// quintessential "not ready" response; try again
+			delay_ms(5);
+			if (EPS_ENABLE_DEBUG_PRINT) {
+				debug_uart_print_str("OBC->EPS: not ready, retrying...\n");
+			}
+			continue;
+		}
+		else {
+			had_successful_rx = 1;
+			if (EPS_ENABLE_DEBUG_PRINT) {
+				debug_uart_print_str("OBC->EPS: success after retries...\n");
+			}
+			break;
+		}
+	}
+
+
+	if (had_successful_rx == 0) {
+		return 4;
+	}
+
+	if (EPS_ENABLE_DEBUG_PRINT) {
+		debug_uart_print_str("EPS->OBC: ");
+		debug_uart_print_array_hex(rx_buf, rx_buf_len, "\n");
+	}
+
+	// Check STAT field (Table 3-11) - 0x00 and 0x80 mean success
+	// TODO: consider doing this check in the next level up
+	uint8_t eps_stat_field = rx_buf[4];
+	if ((eps_stat_field != 0x00) && (eps_stat_field != 0x80)) {
+		if (EPS_ENABLE_DEBUG_PRINT) {
+			char msg[100];
+			sprintf(msg,
+					"EPS returned an error in the STAT field: 0x%02x (see ESP_SICD Table 3-11)\n",
+					eps_stat_field);
+			debug_uart_print_str(msg);
+		}
+	}
+
+	return 0;
+}
+
 
 void eps_debug_get_and_print_channel_stats(EPS_CHANNEL_t eps_channel) {
 	PDU_HK_D* EPS_data_received;
@@ -56,14 +147,14 @@ void eps_debug_uart_print_sys_stat(eps_result_sys_stat_t* sys_stat) {
 	    sys_stat->status, sys_stat->mode, sys_stat->conf, sys_stat->reset_cause, sys_stat->uptime, sys_stat->error, sys_stat->rc_cnt_pwron, sys_stat->rc_cnt_wdg, sys_stat->rc_cnt_cmd, sys_stat->rc_cnt_mcu, sys_stat->rc_cnt_emlopo, sys_stat->prevcmd_elapsed, sys_stat->unix_time, sys_stat->unix_year, sys_stat->unix_month, sys_stat->unix_day, sys_stat->unix_hour, sys_stat->unix_minute, sys_stat->unix_second
 	);
 
-	HAL_UART_Transmit(&hlpuart1, (uint8_t*)msg1, strlen((char*)msg1), HAL_MAX_DELAY);
+	debug_uart_print_str(msg1);
 }
 
 
 //Driver functions
 
 void eps_system_reset() {
-	uint8_t CC = 0xAA;
+	const uint8_t CC = 0xAA;
 	uint8_t Reset_key = 0xA6;
 
 	uint8_t cmd_buf[5];
@@ -79,7 +170,8 @@ void eps_system_reset() {
 
 
 uint8_t eps_no_operation() {
-	uint8_t CC = 0x02;
+	// FIXME: it appears that the no_operation command does not return it's own CC+1 in the RC field
+	const uint8_t CC = 0x02;
     uint8_t cmd_buf[4];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -87,12 +179,8 @@ uint8_t eps_no_operation() {
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
-
-
 	uint8_t rx_buf[5];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
+	uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, 4, rx_buf, 5);
 
 	uint8_t status = rx_buf[4];
 
@@ -101,7 +189,7 @@ uint8_t eps_no_operation() {
 
 
 uint8_t eps_cancel_oper() {
-	uint8_t CC = 0x04;
+	const uint8_t CC = 0x04;
 	uint8_t cmd_buf[4];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -123,7 +211,7 @@ uint8_t eps_cancel_oper() {
 
 
 void eps_watchdog() {
-	uint8_t CC = 0x06;
+	const uint8_t CC = 0x06;
 	uint8_t cmd_buf[4];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -131,12 +219,13 @@ void eps_watchdog() {
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	uint8_t rx_buf[5];
+	uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, 4, rx_buf, 5);
 }
 
 
 uint8_t eps_output_bus_group_on(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
-	uint8_t CC = 0x10;
+	const uint8_t CC = 0x10;
 	uint8_t cmd_buf[8];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -159,7 +248,7 @@ uint8_t eps_output_bus_group_on(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
 
 
 uint8_t eps_output_bus_group_off(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
-	uint8_t CC = 0x12;
+	const uint8_t CC = 0x12;
 	uint8_t cmd_buf[8];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -182,7 +271,7 @@ uint8_t eps_output_bus_group_off(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
 
 
 uint8_t eps_output_bus_group_state(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
-	uint8_t CC = 0x14;
+	const uint8_t CC = 0x14;
 	uint8_t cmd_buf[8];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -205,7 +294,7 @@ uint8_t eps_output_bus_group_state(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
 
 
 uint8_t eps_output_bus_channel_on(uint8_t CH_IDX) {
-	uint8_t CC = 0x16;
+	const uint8_t CC = 0x16;
 	uint8_t cmd_buf[5];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -227,7 +316,7 @@ uint8_t eps_output_bus_channel_on(uint8_t CH_IDX) {
 
 
 uint8_t eps_output_bus_channel_off(uint8_t CH_IDX) {
-	uint8_t CC = 0x18;
+	const uint8_t CC = 0x18;
 	uint8_t cmd_buf[5];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -249,7 +338,7 @@ uint8_t eps_output_bus_channel_off(uint8_t CH_IDX) {
 
 
 void eps_switch_to_nominal_mode() {
-	uint8_t CC = 0x30;
+	const uint8_t CC = 0x30;
 	uint8_t cmd_buf[4];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -262,7 +351,7 @@ void eps_switch_to_nominal_mode() {
 
 
 void eps_switch_to_safety_mode() {
-	uint8_t CC = 0x32;
+	const uint8_t CC = 0x32;
 	uint8_t cmd_buf[4];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -274,8 +363,8 @@ void eps_switch_to_safety_mode() {
 }
 
 
-void eps_get_sys_status(eps_result_sys_stat_t* result_dest) {
-	uint8_t CC = 0x40;
+uint8_t eps_get_sys_status(eps_result_sys_stat_t* result_dest) {
+	const uint8_t CC = 0x40;
 	uint8_t cmd_buf[4];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -283,18 +372,19 @@ void eps_get_sys_status(eps_result_sys_stat_t* result_dest) {
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
-
 	uint8_t rx_buf[36];
+	uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, 4, rx_buf, 36);
 
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 36, HAL_MAX_DELAY);
+	if (comms_err != 0) {
+		return comms_err;
+	}
 
 	result_dest->status = rx_buf[4];
 	result_dest->mode = rx_buf[5];
 	result_dest->conf = rx_buf[6];
 	result_dest->reset_cause = rx_buf[7];
-	result_dest->uptime = rx_buf[8];
-	result_dest->error = rx_buf[12];
+	result_dest->uptime = rx_buf[8] | (rx_buf[9]<<8) | (rx_buf[10]<<16) | (rx_buf[11]<<24);
+	result_dest->error = rx_buf[12]; // FIXME: multi-byte values
 	result_dest->rc_cnt_pwron = rx_buf[14];
 	result_dest->rc_cnt_wdg = rx_buf[16];
 	result_dest->rc_cnt_cmd = rx_buf[18];
@@ -308,12 +398,12 @@ void eps_get_sys_status(eps_result_sys_stat_t* result_dest) {
 	result_dest->unix_hour = rx_buf[33];
 	result_dest->unix_minute = rx_buf[34];
 	result_dest->unix_second = rx_buf[35];
-
+	return 0;
 }
 
 
 void eps_get_pdu_piu_overcurrent_fault_state(PDU_PIU_OFS* result_dest) {
-	uint8_t CC = 0x42;
+	const uint8_t CC = 0x42;
 	uint8_t cmd_buf[4];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -372,7 +462,7 @@ void eps_get_pdu_piu_overcurrent_fault_state(PDU_PIU_OFS* result_dest) {
 //__________________________________________________________________________________________________
 
 void eps_get_pbu_abf_placed_state(PBU_ABF_PS* result_dest) {
-	uint8_t CC = 0x44;
+	const uint8_t CC = 0x44;
 	uint8_t cmd_buf[4];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -398,7 +488,7 @@ void eps_get_pbu_abf_placed_state(PBU_ABF_PS* result_dest) {
 
 
 void eps_get_pdu_housekeeping_data_raw(PDU_HK_D* result_dest) {
-	uint8_t CC = 0x50;
+	const uint8_t CC = 0x50;
 	uint8_t cmd_buf[4];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -467,7 +557,7 @@ void eps_get_pdu_housekeeping_data_raw(PDU_HK_D* result_dest) {
 //_________________________________________________________________________________________________
 
 void eps_get_pdu_housekeeping_data_eng(PDU_HK_D* result_dest) {
-	uint8_t CC = 0x52;
+	const uint8_t CC = 0x52;
 	uint8_t cmd_buf[4];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -537,7 +627,7 @@ void eps_get_pdu_housekeeping_data_eng(PDU_HK_D* result_dest) {
 
 
 void eps_get_pdu_housekeeping_data_running_average(PDU_HK_D* result_dest) {
-	uint8_t CC = 0x54;
+	const uint8_t CC = 0x54;
 	uint8_t cmd_buf[4];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -606,7 +696,7 @@ void eps_get_pdu_housekeeping_data_running_average(PDU_HK_D* result_dest) {
 //_____________________________________________________________________________________________________________________________
 
 void eps_get_pbu_housekeeping_data_raw(PBU_HK_D* result_dest) {
-	uint8_t CC = 0x60;
+	const uint8_t CC = 0x60;
 	uint8_t cmd_buf[4];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -664,7 +754,7 @@ void eps_get_pbu_housekeeping_data_raw(PBU_HK_D* result_dest) {
 //_______________________________________________________________________________________________
 
 void eps_get_pbu_housekeeping_data_eng(PBU_HK_D* result_dest) {
-	uint8_t CC = 0x62;
+	const uint8_t CC = 0x62;
 	uint8_t cmd_buf[4];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -721,7 +811,7 @@ void eps_get_pbu_housekeeping_data_eng(PBU_HK_D* result_dest) {
 //________________________________________________________________________________________
 
 void eps_get_pbu_housekeeping_data_running_average(PBU_HK_D* result_dest) {
-	uint8_t CC = 0x64;
+	const uint8_t CC = 0x64;
 	uint8_t cmd_buf[4];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -785,7 +875,7 @@ void eps_get_pbu_housekeeping_data_running_average(PBU_HK_D* result_dest) {
 //_________________________________________________________________________________________________
 
 void eps_get_pcu_housekeeping_data_raw(PCU_HK_D* result_dest) {
-	uint8_t CC = 0x70;
+	const uint8_t CC = 0x70;
 	uint8_t cmd_buf[4];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -833,7 +923,7 @@ void eps_get_pcu_housekeeping_data_raw(PCU_HK_D* result_dest) {
 //_______________________________________________________________________________________
 
 void eps_get_pcu_housekeeping_data_eng(PCU_HK_D* result_dest) {
-	uint8_t CC = 0x72;
+	const uint8_t CC = 0x72;
 	uint8_t cmd_buf[4];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -880,7 +970,7 @@ void eps_get_pcu_housekeeping_data_eng(PCU_HK_D* result_dest) {
 //_______________________________________________________________________________________
 
 void eps_get_pcu_housekeeping_data_running_average(PCU_HK_D* result_dest) {
-	uint8_t CC = 0x74;
+	const uint8_t CC = 0x74;
 	uint8_t cmd_buf[4];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -928,7 +1018,7 @@ void eps_get_pcu_housekeeping_data_running_average(PCU_HK_D* result_dest) {
 //----------------------------------------------------------------------------------------------------
 
 void eps_get_configuration_parameter(GET_CONFIG_PARAM* result_dest, uint16_t PAR_ID) {
-	uint8_t CC = 0x82;
+	const uint8_t CC = 0x82;
 	uint8_t cmd_buf[6];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -952,7 +1042,7 @@ void eps_get_configuration_parameter(GET_CONFIG_PARAM* result_dest, uint16_t PAR
 
 //-----------------------------------------------------------------------------------------------------
 void eps_set_configuration_parameter(SET_CONFIG_PARAM* result_dest, uint16_t PAR_ID, uint8_t PAR_VAL) {
-	uint8_t CC = 0x84;
+	const uint8_t CC = 0x84;
 	uint8_t cmd_buf[14];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -978,7 +1068,7 @@ void eps_set_configuration_parameter(SET_CONFIG_PARAM* result_dest, uint16_t PAR
 //-----------------------------------------------------------------------------------------------------
 
 void eps_reset_configuration_parameter(RESET_CONFIG_PAR* result_dest, uint16_t PAR_ID) {
-	uint8_t CC = 0x86;
+	const uint8_t CC = 0x86;
 	uint8_t cmd_buf[6];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -1002,7 +1092,7 @@ void eps_reset_configuration_parameter(RESET_CONFIG_PAR* result_dest, uint16_t P
 //---------------------------------------------------------------------------------------------------------
 
 void eps_reset_configuration(RESET_CONFIGURATION* result_dest) {
-	uint8_t CC = 0x90;
+	const uint8_t CC = 0x90;
 	uint8_t CONF_KEY = 0x87;
 
 	uint8_t cmd_buf[5];
@@ -1027,7 +1117,7 @@ void eps_reset_configuration(RESET_CONFIGURATION* result_dest) {
 //---------------------------------------------------------------------------------------------------
 
 void eps_load_configuration(LOAD_CONFIGURATION* result_dest) {
-	uint8_t CC = 0x92;
+	const uint8_t CC = 0x92;
 	uint8_t CONF_KEY = 0xA7;
 
 	uint8_t cmd_buf[5];
@@ -1052,7 +1142,7 @@ void eps_load_configuration(LOAD_CONFIGURATION* result_dest) {
 //---------------------------------------------------------------------------------------------
 
 void eps_save_configuration(SAVE_CONFIGURATION* result_dest) {
-	uint8_t CC = 0x94;
+	const uint8_t CC = 0x94;
 	uint8_t CONF_KEY = 0xA7;
 	uint16_t CHECKSUM = 0;
 
@@ -1079,7 +1169,7 @@ void eps_save_configuration(SAVE_CONFIGURATION* result_dest) {
 //------------------------------------------------------------------------------------------------------------------
 
 void eps_get_piu_housekeeping_data_raw(GET_PIU_HK* result_dest) {
-	uint8_t CC = 0xA0;
+	const uint8_t CC = 0xA0;
 	uint8_t cmd_buf[4];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -1180,7 +1270,7 @@ void eps_get_piu_housekeeping_data_raw(GET_PIU_HK* result_dest) {
 //-----------------------------------------------------------------------------------------------------
 
 void eps_get_piu_housekeeping_data_eng(GET_PIU_HK* result_dest) {
-	uint8_t CC = 0xA2;
+	const uint8_t CC = 0xA2;
 	uint8_t cmd_buf[4];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -1281,7 +1371,7 @@ void eps_get_piu_housekeeping_data_eng(GET_PIU_HK* result_dest) {
 //------------------------------------------------------------------------------------------
 
 void eps_get_piu_housekeeping_data_running_average(GET_PIU_HK* result_dest) {
-	uint8_t CC = 0xA4;
+	const uint8_t CC = 0xA4;
 	uint8_t cmd_buf[4];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
@@ -1382,7 +1472,7 @@ void eps_get_piu_housekeeping_data_running_average(GET_PIU_HK* result_dest) {
 //--------------------------------------------------------------------------------------------------
 
 void eps_correct_time(CORRECT_TIME_S* result_dest, int32_t time_correction) {
-	uint8_t CC = 0xC4;
+	const uint8_t CC = 0xC4;
 	//Time correction in unix time (positive numbers added to time, negative values subtracted)
 	int32_t CORRECTION = time_correction;
 
@@ -1408,7 +1498,7 @@ void eps_correct_time(CORRECT_TIME_S* result_dest, int32_t time_correction) {
 //------------------------------------------------------------------------------------------------------
 
 void eps_zero_reset_cause_counters(ZERO_RESET_CAUSE_COUNTERS_S* result_dest) {
-	uint8_t CC = 0xC6;
+	const uint8_t CC = 0xC6;
 	//Time correction in unix time (positive numbers added to time, negative values subtracted)
 	int32_t ZERO_KEY = 0xA7;
 
