@@ -149,8 +149,7 @@ int main(void)
     debug_i2c_scan();
 
 
-    debug_uart_print_str("Executing eps_no_operation()...\n");
-    uint8_t noop_status = eps_no_operation();
+
 
     debug_uart_print_str("Executing eps_watchdog()...\n");
     eps_watchdog();
@@ -170,9 +169,22 @@ int main(void)
 //    debug_uart_print_str("Fetching and printing CH1 info...\n");
 //    eps_debug_get_and_print_channel_stats(1);
 
+    const uint16_t CH_BF = 1<< 12;
+    const uint16_t CH_EXT_BF = 0;
+
+
+    debug_uart_print_str("Executing eps_output_bus_group_on()...\n");
+    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7); //blue LED for bus group on
+    eps_output_bus_group_on( CH_BF,   CH_EXT_BF);
+    HAL_Delay(5000);
+
+    debug_uart_print_str("Executing eps_output_bus_group_off()...\n");
+    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
+    eps_output_bus_group_off( CH_BF,  CH_EXT_BF);
+
     debug_uart_print_str("End of while loop\n\n");
 
-    HAL_Delay(10000);
+    HAL_Delay(5000);
   }
   /* USER CODE END 3 */
 }

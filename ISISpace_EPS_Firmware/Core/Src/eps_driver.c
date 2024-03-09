@@ -241,8 +241,10 @@ uint8_t eps_output_bus_group_on(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
-	cmd_buf[4] = CH_BF;
-	cmd_buf[6] = CH_EXT_BF;
+	cmd_buf[4] = CH_BF & 0x00FF;
+	cmd_buf[5] = CH_BF >> 8;
+	cmd_buf[6] = CH_EXT_BF & 0x00FF;
+	cmd_buf[7] = CH_EXT_BF >> 8;
 
 	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 8, HAL_MAX_DELAY);
 
@@ -264,8 +266,10 @@ uint8_t eps_output_bus_group_off(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
-	cmd_buf[4] = CH_BF;
-	cmd_buf[6] = CH_EXT_BF;
+	cmd_buf[4]= CH_BF & 0x00FF;
+	cmd_buf[5] = CH_BF >> 8;
+	cmd_buf[6] = CH_EXT_BF & 0x00FF;
+	cmd_buf[7] = CH_EXT_BF >> 8;
 
 	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 8, HAL_MAX_DELAY);
 
