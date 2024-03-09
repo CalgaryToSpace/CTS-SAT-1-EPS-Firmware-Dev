@@ -370,7 +370,7 @@ typedef struct ZERO_RESET_CAUSE_COUNTERS_S {
 void eps_debug_uart_print_sys_stat(eps_result_sys_stat_t* sys_stat);
 
 
-void eps_system_reset();
+uint8_t eps_system_reset();
 // 20230406 Frank:
 // - This function is used to send a system reset command to the ISIS Power system.
 // - We are not excepting to receive anything useful back, or we may not even be able to poll the power system for a reply while it is resetting. Therefore its return type is "void".
@@ -387,7 +387,7 @@ uint8_t eps_cancel_oper();
 // This function switches off any command enable output bus channels.
 
 
-void eps_watchdog();
+uint8_t eps_watchdog();
 //20230416 Frank:
 // This function resets the watchdog timer, keeping the power system from resetting.
 

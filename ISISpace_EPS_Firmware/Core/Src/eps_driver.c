@@ -162,9 +162,9 @@ void eps_debug_uart_print_sys_stat(eps_result_sys_stat_t* sys_stat) {
 
 //Driver functions
 
-void eps_system_reset() {
+uint8_t eps_system_reset() {
 	const uint8_t CC = 0xAA;
-	uint8_t Reset_key = 0xA6;
+	const uint8_t Reset_key = 0xA6;
 
 	uint8_t cmd_buf[5];
 
@@ -174,7 +174,13 @@ void eps_system_reset() {
 	cmd_buf[3] = EPS_COMMAND_BID;
 	cmd_buf[4] = Reset_key;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 5, 1000);
+	uint8_t rx_buf[5];
+	uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, 5, rx_buf, 5);
+
+
+	//HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 5, 1000);
+
+	return comms_err;
 }
 
 
@@ -219,7 +225,7 @@ uint8_t eps_cancel_oper() {
 }
 
 
-void eps_watchdog() {
+uint8_t eps_watchdog() {
 	const uint8_t CC = 0x06;
 	uint8_t cmd_buf[4];
 
@@ -230,6 +236,8 @@ void eps_watchdog() {
 
 	uint8_t rx_buf[5];
 	uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, 4, rx_buf, 5);
+
+	return comms_err;
 }
 
 

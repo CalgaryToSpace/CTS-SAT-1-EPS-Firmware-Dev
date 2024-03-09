@@ -97,11 +97,7 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 
-
-
-
-
-
+3
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -178,9 +174,17 @@ int main(void)
     eps_output_bus_group_on( CH_BF,   CH_EXT_BF);
     HAL_Delay(5000);
 
-    debug_uart_print_str("Executing eps_output_bus_group_off()...\n");
-    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
-    eps_output_bus_group_off( CH_BF,  CH_EXT_BF);
+    debug_uart_print_str("Executing eps_system_reset()...\n");
+    uint8_t comms_err = eps_system_reset();
+    if(comms_err) {
+    	debug_uart_print_str("System reset status successful\n" );
+    }
+    else{
+    	debug_uart_print_str("System reset status unsuccessful\n" );
+    }
+//    debug_uart_print_str("Executing eps_output_bus_group_off()...\n");
+//    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
+//    eps_output_bus_group_off( CH_BF,  CH_EXT_BF);
 
     debug_uart_print_str("End of while loop\n\n");
 
