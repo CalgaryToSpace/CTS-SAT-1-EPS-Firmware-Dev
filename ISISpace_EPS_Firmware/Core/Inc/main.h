@@ -37,8 +37,10 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "debug_helpers.h"
-#include "eps_driver.h"
+#include "debug_tools/debug_uart.h"
+#include "debug_tools/debug_i2c.h"
+#include "eps_drivers/eps_commands.h"
+#include "eps_drivers/eps_debug_tools.h"
 
 /* USER CODE END Includes */
 

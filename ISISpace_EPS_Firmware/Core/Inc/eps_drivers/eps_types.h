@@ -42,17 +42,17 @@ typedef struct {
 // "Complex Datatype: BPD" (raw)
 typedef struct {
 	eps_vpid_raw_t vip_bp_input_raw;
-	uint16_t bp_stat_bitfield; // See Table 3-18 for bitfield definitions
-	uint16_t cell_voltage_raw[4];
-    uint16_t battery_temperature_raw[3];
+	uint16_t bp_status_bitfield; // See Table 3-18 for bitfield definitions
+	uint16_t cell_voltage_each_cell_raw[4];
+    uint16_t battery_temperature_each_sensor_raw[3];
 } eps_battery_pack_datatype_raw_t;
 
 // "Complex Datatype: BPD (Battery Pack Datatype)" (eng)
 typedef struct {
-    eps_vpid_eng_t vip_bp_input_eng;
-	uint16_t bp_stat_bitfield; // See Table 3-18 for bitfield definitions
-    int16_t cell_voltage_mV[4];
-    int16_t battery_temperature_cC[3]; // centiCelsius = 1e-2 degrees C
+    eps_vpid_eng_t vip_bp_input;
+	uint16_t bp_status_bitfield; // See Table 3-18 for bitfield definitions
+    int16_t cell_voltage_each_cell_mV[4];
+    int16_t battery_temperature_each_sensor_cC[3]; // centiCelsius = 1e-2 degrees C
 } eps_battery_pack_datatype_eng_t;
 
 // "Complex Datatype: CCD (Conditioning Channel Datatype)" (raw)
@@ -68,7 +68,7 @@ typedef struct {
 // "Complex Datatype: CCD (Conditioning Channel Datatype)" (eng)
 // The conditioning channel refers to the MPPT system.
 typedef struct {
-	eps_vpid_eng_t vip_cc_output_eng;
+	eps_vpid_eng_t vip_cc_output;
     int16_t volt_in_mppt_mV;
     int16_t curr_in_mppt_mA;
     int16_t volt_ou_mppt_mV;
@@ -115,231 +115,154 @@ typedef struct {
 	uint8_t calendar_second;
 } eps_result_system_status_t;
 
-typedef struct PDU_PIU_Overcurrent_Fault_State {
+// Command Response: 0x42: Get Overcurrent Fault State
+typedef struct {
+    // Note: rx_buf[5] is a reserved/ignored value
+	uint16_t stat_ch_on_bitfield;
+	uint16_t stat_ch_ext_on_bitfield; // channels not present on our model
+	uint16_t stat_ch_overcurrent_fault_bitfield;
+	uint16_t stat_ch_ext_overcurrent_fault_bitfield; // channels not present on our model
+    uint16_t overcurrent_fault_count_each_channel[32]; // only channels 0-15 are present on our model
+} eps_result_pdu_overcurrent_fault_state_t;
 
-	uint8_t status;
-	uint16_t stat_ch_on;
-	uint16_t stat_ch_ext_on;
-	uint16_t stat_ch_ocf;
-	uint16_t stat_ch_ext_ocf;
-
-	uint16_t ocf_cnt_ch00;
-	uint16_t ocf_cnt_ch01;
-	uint16_t ocf_cnt_ch02;
-	uint16_t ocf_cnt_ch03;
-	uint16_t ocf_cnt_ch04;
-	uint16_t ocf_cnt_ch05;
-	uint16_t ocf_cnt_ch06;
-	uint16_t ocf_cnt_ch07;
-	uint16_t ocf_cnt_ch08;
-	uint16_t ocf_cnt_ch09;
-	uint16_t ocf_cnt_ch10;
-	uint16_t ocf_cnt_ch11;
-	uint16_t ocf_cnt_ch12;
-	uint16_t ocf_cnt_ch13;
-	uint16_t ocf_cnt_ch14;
-	uint16_t ocf_cnt_ch15;
-	uint16_t ocf_cnt_ch16;
-	uint16_t ocf_cnt_ch17;
-	uint16_t ocf_cnt_ch18;
-	uint16_t ocf_cnt_ch19;
-	uint16_t ocf_cnt_ch20;
-	uint16_t ocf_cnt_ch21;
-	uint16_t ocf_cnt_ch22;
-	uint16_t ocf_cnt_ch23;
-	uint16_t ocf_cnt_ch24;
-	uint16_t ocf_cnt_ch25;
-	uint16_t ocf_cnt_ch26;
-	uint16_t ocf_cnt_ch27;
-	uint16_t ocf_cnt_ch28;
-	uint16_t ocf_cnt_ch29;
-	uint16_t ocf_cnt_ch30;
-	uint16_t ocf_cnt_ch31;
-
-} PDU_PIU_OFS;
-
-typedef struct PBU_ABF_Placed_State {
-
-	uint8_t status;
-
-	uint8_t ABF_Placed_0;
-	uint8_t ABF_Placed_1;
-
-}  PBU_ABF_PS;
-
-typedef struct PDU_Housekeeping_Data {
-
-	uint8_t status;
-
-	uint16_t VOLT_BRDSUP;
-	uint16_t TEMP_MCU;
-
-	VIPD VIP_INPUT;
-
-	uint16_t STAT_CH_ON;
-	uint16_t STAT_CH_EXT_ON;
-	uint16_t STAT_CH_OCF;
-	uint16_t STAT_CH_EXT_OCF;
-
-	VIPD VIP_VD0;
-	VIPD VIP_VD1;
-	VIPD VIP_VD2;
-	VIPD VIP_VD3;
-	VIPD VIP_VD4;
-	VIPD VIP_VD5;
-	VIPD VIP_VD6;
-
-	VIPD VIP_CH00;
-	VIPD VIP_CH01;
-	VIPD VIP_CH02;
-	VIPD VIP_CH03;
-	VIPD VIP_CH04;
-	VIPD VIP_CH05;
-	VIPD VIP_CH06;
-	VIPD VIP_CH07;
-	VIPD VIP_CH08;
-	VIPD VIP_CH09;
-	VIPD VIP_CH10;
-	VIPD VIP_CH11;
-	VIPD VIP_CH12;
-	VIPD VIP_CH13;
-	VIPD VIP_CH14;
-	VIPD VIP_CH15;
-	VIPD VIP_CH16;
-	VIPD VIP_CH17;
-	VIPD VIP_CH18;
-	VIPD VIP_CH19;
-	VIPD VIP_CH20;
-	VIPD VIP_CH21;
-	VIPD VIP_CH22;
-	VIPD VIP_CH23;
-	VIPD VIP_CH24;
-	VIPD VIP_CH25;
-	VIPD VIP_CH26;
-	VIPD VIP_CH27;
-	VIPD VIP_CH28;
-	VIPD VIP_CH29;
-	VIPD VIP_CH30;
-	VIPD VIP_CH31;
-
-} PDU_HK_D;
-
-typedef struct PBU_Housekeeping_Data {
-	uint8_t status;
-	uint16_t VOLT_BRDSUP;
-	uint16_t TEMP_MCU;
-	VIPD VIP_INPUT;
-	uint16_t STAT_BU;
-
-	BPD BP1;
-	BPD BP2;
-	BPD BP3;
-} PBU_HK_D;
-
-typedef struct PCU_HOUSEKEEPING_DATA {
-	uint8_t status;
-	uint16_t VOLT_BRDSUP;
-	uint16_t TEMP_MCU;
-	VIPD VIP_OUTPUT;
-
-	CCD CC1;
-	CCD CC2;
-	CCD CC3;
-	CCD CC4;
-} PCU_HK_D;
+// Command Response: 0x44: Get PBU ABF Placed State
+typedef enum {
+    EPS_ABF_PIN_APPLIED = 0,
+    EPS_ABF_PIN_NOT_APPLIED = 0xAB
+} EPS_ABF_PIN_PLACED_enum_t;
+typedef struct {
+	EPS_ABF_PIN_PLACED_enum_t abf_placed_0;
+	EPS_ABF_PIN_PLACED_enum_t abf_placed_1;
+}  eps_result_pbu_abf_placed_state_t;
 
 
-typedef struct GET_CONFIGURATION_PARAMETER {
-	uint8_t status;
-	uint16_t PAR_ID;
-	uint8_t PAR_VAL;
-} GET_CONFIG_PARAM;
+// Command Response: 0x50: Get PDU (Distribution Unit) Housekeeping Data (Raw)
+typedef struct {
+	uint16_t voltage_internal_board_supply_raw;
+	uint16_t temperature_mcu_raw;
+
+	eps_vpid_raw_t vip_total_input_raw;
+    
+    uint16_t stat_ch_on_bitfield;
+	uint16_t stat_ch_ext_on_bitfield; // channels not present on our model
+	uint16_t stat_ch_overcurrent_fault_bitfield;
+	uint16_t stat_ch_ext_overcurrent_fault_bitfield; // channels not present on our model
+
+    eps_vpid_raw_t vip_each_voltage_domain_raw[7];
+    eps_vpid_raw_t vip_each_channel_raw[32];
+} eps_result_pdu_housekeeping_data_raw_t;
+
+// Command Response: 0x52: Get PDU (Distribution Unit) Housekeeping Data (Eng)
+// Command Response: 0x54: Get PDU (Distribution Unit) Housekeeping Data (Running Average, Eng)
+typedef struct {
+	uint16_t voltage_internal_board_supply_mV;
+	uint16_t temperature_mcu_cC; // centiCelsius = 1e-2 degrees C
+
+	eps_vpid_eng_t vip_total_input;
+    
+    uint16_t stat_ch_on_bitfield;
+	uint16_t stat_ch_ext_on_bitfield; // channels not present on our model
+	uint16_t stat_ch_overcurrent_fault_bitfield;
+	uint16_t stat_ch_ext_overcurrent_fault_bitfield; // channels not present on our model
+
+    eps_vpid_eng_t vip_each_voltage_domain[7];
+    eps_vpid_eng_t vip_each_channel[32];
+} eps_result_pdu_housekeeping_data_eng_t;
+
+// Command Response: 0x60: Get PBU (Battery Unit) Housekeeping Data (Raw)
+typedef struct {
+	uint16_t voltage_internal_board_supply_raw;
+	uint16_t temperature_mcu_raw;
+	eps_vpid_raw_t vip_total_input_raw;
+    uint16_t battery_pack_status_bitfield; // Table 3-18: Battery Pack Status
+
+    eps_battery_pack_datatype_raw_t battery_pack_info_each_pack_raw[3];
+} eps_result_pbu_housekeeping_data_raw_t;
+
+// Command Response: 0x62: Get PBU (Battery Unit) Housekeeping Data (Eng)
+// Command Response: 0x64: Get PBU (Battery Unit) Housekeeping Data (Running Average, Eng)
+typedef struct {
+	uint16_t voltage_internal_board_supply_mV;
+	uint16_t temperature_mcu_cC; // centiCelsius = 1e-2 degrees C
+	eps_vpid_eng_t vip_total_input;
+    uint16_t battery_pack_status_bitfield; // Table 3-18: Battery Pack Status
+
+    eps_battery_pack_datatype_eng_t battery_pack_info_each_pack[3];
+} eps_result_pbu_housekeeping_data_eng_t;
+
+// Command Response: 0x70: Get PCU (Conditioning Unit) Housekeeping Data (Raw)
+typedef struct {
+	uint16_t voltage_internal_board_supply_raw;
+	uint16_t temperature_mcu_raw;
+	eps_vpid_raw_t vip_total_input_raw;
+
+    eps_conditioning_channel_datatype_raw_t conditioning_channel_info_each_channel_raw[4];
+} eps_result_pcu_housekeeping_data_raw_t;
+
+// Command Response: 0x72: Get PCU (Conditioning Unit) Housekeeping Data (Eng)
+// Command Response: 0x74: Get PCU (Conditioning Unit) Housekeeping Data (Running Average, Eng)
+typedef struct {
+    uint16_t voltage_internal_board_supply_mV;
+    uint16_t temperature_mcu_cC; // centiCelsius = 1e-2 degrees C
+    eps_vpid_eng_t vip_total_input;
+
+    eps_conditioning_channel_datatype_eng_t conditioning_channel_info_each_channel[4];
+} eps_result_pcu_housekeeping_data_eng_t;
+
+// Command Response: 0xA0: Get PDU (Distribution Unit) Housekeeping Data (Raw)
+typedef struct {
+	uint16_t voltage_internal_board_supply_raw;
+	uint16_t temperature_mcu_raw;
+
+    eps_vpid_raw_t vip_dist_input_raw;
+    eps_vpid_raw_t vip_batt_input_raw;
+    uint16_t stat_ch_on_bitfield;
+    uint16_t stat_ch_overcurrent_fault_bitfield;
+    uint16_t battery_status_bitfield; // Table 3-18: Battery Pack Status
+    uint16_t battery_temp2_raw;
+    uint16_t battery_temp3_raw;
+
+    uint16_t vd0_voltage_raw;
+    uint16_t vd1_voltage_raw;
+    uint16_t vd2_voltage_raw;
+
+    // Note: elements below this line are not in byte order they are received in
+
+    eps_vpid_raw_t vip_each_channel_raw[32];
+    eps_conditioning_channel_short_datatype_raw_t conditioning_channel_info_each_channel_raw[5];
+
+    uint16_t stat_ch_ext_on_bitfield;
+    uint16_t stat_ch_ext_overcurrent_fault_bitfield;
+} eps_result_piu_housekeeping_data_raw_t;
 
 
-typedef struct SET_CONFIGURATION_PARAMETER{
-	uint8_t status;
-	uint16_t PAR_ID;
-	uint8_t PAR_VAL;
-} SET_CONFIG_PARAM;
+// Command Response: 0xA2: Get PDU (Distribution Unit) Housekeeping Data (Eng)
+// Command Response: 0xA4: Get PDU (Distribution Unit) Housekeeping Data (Running Average, Eng)
+typedef struct {
+	uint16_t voltage_internal_board_supply_mV;
+	uint16_t temperature_mcu_cC; // centiCelsius = 1e-2 degrees C
 
+    eps_vpid_eng_t vip_dist_input;
+    eps_vpid_eng_t vip_batt_input;
+    uint16_t stat_ch_on_bitfield;
+    uint16_t stat_ch_overcurrent_fault_bitfield;
+    uint16_t battery_status_bitfield; // Table 3-18: Battery Pack Status
+    uint16_t battery_temp2_cC;
+    uint16_t battery_temp3_cC;
 
-typedef struct RESET_CONFIGURATION_PARAMETER {
-	uint8_t status;
-	uint8_t PAR_ID;
-	uint8_t PAR_VAL;
-} RESET_CONFIG_PAR;
+    uint16_t vd0_voltage_mV;
+    uint16_t vd1_voltage_mV;
+    uint16_t vd2_voltage_mV;
 
+    // Note: elements below this line are not in byte order they are received in
 
-typedef struct conditioning_channel_short_datatype {
-	uint16_t VOLT_IN_MPPT;
-	uint16_t CURR_IN_MPPT;
-	uint16_t VOLT_OU_MPPT;
-	uint16_t CURR_OU_MPPT;
-} CCSD;
+    eps_vpid_eng_t vip_each_channel[32];
+    eps_conditioning_channel_short_datatype_eng_t conditioning_channel_info_each_channel[5];
 
-typedef struct GET_PIU_HK {
-	uint8_t status;
-	uint16_t VOLT_BRDSUP;
-	uint16_t TEMP;
-	VIPD VIP_DIST_INPUT;
-	VIPD VIP_BATT_INPUT;
-	uint16_t SAT_CH_ON;
-	uint16_t STAT_CH_OCF;
+    uint16_t stat_ch_ext_on_bitfield;
+    uint16_t stat_ch_ext_overcurrent_fault_bitfield;
+} eps_result_piu_housekeeping_data_eng_t;
 
-	uint16_t BAT_STAT;
-
-	uint16_t BAT_TEMP2;
-	uint16_t BAT_TEMP3;
-
-	uint16_t VOLT_VD0;
-	uint16_t VOLT_VD1;
-	uint16_t VOLT_VD2;
-
-	VIPD VIP_CH00;
-	VIPD VIP_CH01;
-	VIPD VIP_CH02;
-	VIPD VIP_CH03;
-	VIPD VIP_CH04;
-	VIPD VIP_CH05;
-	VIPD VIP_CH06;
-	VIPD VIP_CH07;
-	VIPD VIP_CH08;
-
-	CCSD CC1;
-	CCSD CC2;
-	CCSD CC3;
-
-	VIPD VIP_CH09;
-	VIPD VIP_CH10;
-	VIPD VIP_CH11;
-	VIPD VIP_CH12;
-	VIPD VIP_CH13;
-	VIPD VIP_CH14;
-	VIPD VIP_CH15;
-
-	CCSD CC4;
-	CCSD CC5;
-
-	uint16_t STAT_CH_EXT_ON;
-	uint16_t STAT_CH_EXT_OCF;
-
-	VIPD VIP_CH16;
-	VIPD VIP_CH17;
-	VIPD VIP_CH18;
-	VIPD VIP_CH19;
-	VIPD VIP_CH20;
-	VIPD VIP_CH21;
-	VIPD VIP_CH22;
-	VIPD VIP_CH23;
-	VIPD VIP_CH24;
-	VIPD VIP_CH25;
-	VIPD VIP_CH26;
-	VIPD VIP_CH27;
-	VIPD VIP_CH28;
-	VIPD VIP_CH29;
-	VIPD VIP_CH30;
-	VIPD VIP_CH31;
-} GET_PIU_HK;
 
 
 
