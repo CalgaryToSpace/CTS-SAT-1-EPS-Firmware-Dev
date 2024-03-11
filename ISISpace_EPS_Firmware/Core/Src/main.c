@@ -154,13 +154,13 @@ int main(void)
     debug_uart_print_str("Executing eps_watchdog()...\n");
     eps_watchdog();
 
-    eps_result_sys_stat_t sys_stat;
+    eps_result_system_status_t system_status;
     debug_uart_print_str("Fetching system status info...\n");
-    uint8_t sys_stat_err = eps_get_sys_status(&sys_stat);
+    uint8_t system_status_err = eps_get_system_status(&system_status);
 
-    if (sys_stat_err == 0) {
+    if (system_status_err == 0) {
 		debug_uart_print_str("System status info:\n");
-		eps_debug_uart_print_sys_stat(&sys_stat);
+		eps_debug_uart_print_system_status(&system_status);
     }
 
 //    debug_uart_print_str("Fetching and printing CH0 info...\n");

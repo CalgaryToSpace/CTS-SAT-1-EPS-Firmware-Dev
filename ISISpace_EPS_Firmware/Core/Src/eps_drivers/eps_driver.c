@@ -1,12 +1,6 @@
-/*
- * eps_driver.c
- *
- *  Created on: Nov 14, 2023
- *      Author: frank
- */
 
-
-#include "eps_driver.h"
+#include "debug_helpers/debug_helpers.h"
+#include "eps_drivers/eps_driver.h"
 #include "timing_helpers.h"
 
 
@@ -115,56 +109,6 @@ uint8_t eps_send_cmd_get_response(
 	return 0;
 }
 
-
-uint8_t eps_debug_get_and_print_channel_stats(EPS_CHANNEL_enum_t eps_channel) {
-	PDU_HK_D* EPS_data_received;
-
-	VIPD_eng_t ch_vip_eng;
-
-	const uint8_t comms_err = eps_get_pdu_housekeeping_data_eng(EPS_data_received);
-	if (comms_err != 0) {
-		return comms_err;
-	}
-
-	if (eps_channel == 0) {
-		ch_vip_eng.voltage_mV = EPS_data_received->VIP_CH00.vipd_array[0]; //Voltage measurement in 2 bytes
-		ch_vip_eng.current_mA = EPS_data_received->VIP_CH00.vipd_array[2]; //Current measurement in 2 bytes
-		ch_vip_eng.power_cW = EPS_data_received->VIP_CH00.vipd_array[4]; //Power measurement in 2 bytes
-	}
-	else if (eps_channel == 1) {
-		ch_vip_eng.voltage_mV = EPS_data_received->VIP_CH01.vipd_array[0]; //Voltage measurement in 2 bytes
-		ch_vip_eng.current_mA = EPS_data_received->VIP_CH01.vipd_array[2]; //Current measurement in 2 bytes
-		ch_vip_eng.power_cW = EPS_data_received->VIP_CH01.vipd_array[4]; //Power measurement in 2 bytes
-	}
-	else {
-		// FIXME: Placeholder. Implement the result in a refactor.
-		ch_vip_eng.voltage_mV = ch_vip_eng.current_mA = ch_vip_eng.power_cW = 42;
-	}
-
-	char msg1[250];
-	sprintf(
-		msg1,
-		"Channel %d: V=%d mV, I=%d mA, P=%d cW\n",
-		eps_channel,
-		ch_vip_eng.voltage_mV,
-		ch_vip_eng.current_mA,
-		ch_vip_eng.power_cW
-	);
-	debug_uart_print_str(msg1);
-
-	return 0;
-}
-
-void eps_debug_uart_print_sys_stat(eps_result_sys_stat_t* sys_stat) {
-	char msg1[365];
-	sprintf(
-	    msg1,
-	    "Mode: %d, Configuration: %d, Reset cause: %d, Uptime: %lu sec, Error: %d, rst_cnt_pwron: %u, rst_cnt_wdg: %d, rst_cnt_cmd: %d, rst_cnt_mcu: %d, rst_cnt_emlopo: %d, Prevcmd elapsed: %d, Unix time: %lu, Unix year: %d, Unix month: %d, Unix day: %d, Unix hour: %d, Unix minute: %d, Unix second: %d\n",
-	    sys_stat->mode, sys_stat->conf, sys_stat->reset_cause, sys_stat->uptime_sec, sys_stat->error, sys_stat->rst_cnt_pwron, sys_stat->rst_cnt_wdg, sys_stat->rst_cnt_cmd, sys_stat->rst_cnt_mcu, sys_stat->rst_cnt_emlopo, sys_stat->prevcmd_elapsed, sys_stat->unix_time, sys_stat->unix_year, sys_stat->unix_month, sys_stat->unix_day, sys_stat->unix_hour, sys_stat->unix_minute, sys_stat->unix_second
-	);
-
-	debug_uart_print_str(msg1);
-}
 
 uint8_t eps_run_argumentless_cmd(uint8_t command_code) {
 	const uint8_t cmd_len = 4;
@@ -334,7 +278,7 @@ uint8_t eps_switch_to_safety_mode() {
 }
 
 
-uint8_t eps_get_sys_status(eps_result_sys_stat_t* result_dest) {
+uint8_t eps_get_system_status(eps_result_system_status_t* result_dest) {
 	const uint8_t CC = 0x40;
 	const uint8_t cmd_len = 4;
 	const uint8_t rx_len = 36;
