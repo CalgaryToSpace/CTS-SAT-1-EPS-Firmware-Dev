@@ -27,27 +27,10 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
-
-
-
-
-
-// create a function called debug_UART_EPS_stat
-// 1) such that every 5 seconds, outputs all info available.
-// 2) takes in an enumerated argument type, to select which EPS channel we want.
-
-
-
-
-
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
-
-
-
 
 /* USER CODE END PD */
 
@@ -75,16 +58,10 @@ static void MX_USART3_UART_Init(void);
 static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 
-
-
-
-
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-
 
 
 /* USER CODE END 0 */
@@ -96,11 +73,6 @@ static void MX_I2C1_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
-
-
-
-
 
   /* USER CODE END 1 */
 
@@ -149,8 +121,6 @@ int main(void)
     debug_i2c_scan();
 
 
-
-
     debug_uart_print_str("Executing eps_watchdog()...\n");
     eps_watchdog();
 
@@ -159,19 +129,12 @@ int main(void)
     uint8_t system_status_err = eps_get_system_status(&system_status);
 
     if (system_status_err == 0) {
-		debug_uart_print_str("System status info:\n");
-		eps_debug_uart_print_system_status(&system_status);
+      debug_uart_print_str("System status info:\n");
+      eps_debug_uart_print_system_status(&system_status);
     }
-
-//    debug_uart_print_str("Fetching and printing CH0 info...\n");
-//    eps_debug_get_and_print_channel_stats(0);
-//
-//    debug_uart_print_str("Fetching and printing CH1 info...\n");
-//    eps_debug_get_and_print_channel_stats(1);
 
     const uint16_t CH_BF = 1<< 12;
     const uint16_t CH_EXT_BF = 0;
-
 
     debug_uart_print_str("Executing eps_output_bus_group_on( <CH12> )...\n");
     HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7); //blue LED for bus group on

@@ -4,8 +4,8 @@
 
 #include "eps_drivers/eps_types.h"
 
-uint8_t eps_debug_get_and_print_channel_stats(EPS_CHANNEL_enum_t eps_channel);
-
 void eps_debug_uart_print_system_status(eps_result_system_status_t* system_status);
+
+void eps_result_pdu_housekeeping_data_eng_to_json(const eps_result_pdu_housekeeping_data_eng_t *data, char json_output_str[]);
 
 #endif /* __INCLUDE_GUARD__EPS_DEBUG_TOOLS_H__ */
