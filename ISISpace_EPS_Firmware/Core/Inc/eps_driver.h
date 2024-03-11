@@ -1,12 +1,6 @@
-/*
- * eps_driver.h
- *
- *  Created on: Nov 14, 2023
- *      Author: frank
- */
 
-#ifndef INC_EPS_DRIVER_H_
-#define INC_EPS_DRIVER_H_
+#ifndef __INCLUDE_GUARD__EPS_DRIVER_H__
+#define __INCLUDE_GUARD__EPS_DRIVER_H__
 
 
 #include "main.h"
@@ -19,6 +13,7 @@
 // Data type structs for select functions
 
 typedef enum {
+	// TODO: add the 5V MPI channel
 	EPS_CHANNEL_VBATT_STACK = 0, // CH0
 	EPS_CHANNEL_5V_STACK = 1, // CH1
 	EPS_CHANNEL_5V_CH2_UNUSED = 2, // CH2
@@ -26,8 +21,8 @@ typedef enum {
 	EPS_CHANNEL_5V_CH4_UNUSED = 4, // CH4
 	EPS_CHANNEL_3V3_STACK = 5, // CH5
 	EPS_CHANNEL_3V3_CAMERA = 6, // CH6
-	EPS_CHANNEL_3V3_UHF_Ante_Depl = 7, // CH7
-	EPS_CHANNEL_3V3_LoRA_MODS = 8, // CH8
+	EPS_CHANNEL_3V3_UHF_ANTENNA_DEPLOY = 7, // CH7
+	EPS_CHANNEL_3V3_LORA_MODS = 8, // CH8
 	EPS_CHANNEL_VBATT_CH9_UNUSED = 9, // CH9
 	EPS_CHANNEL_VBATT_CH10_UNUSED = 10, // CH10
 	EPS_CHANNEL_VBATT_CH11_UNUSED = 11, // CH11
@@ -36,11 +31,7 @@ typedef enum {
 	EPS_CHANNEL_3V3_CH14_UNUSED = 14, // CH14
 	EPS_CHANNEL_3V3_CH15_UNUSED = 15, // CH15
 	EPS_CHANNEL_28V6_CH16_UNUSED = 16, // CH16
-} EPS_CHANNEL_t;
-
-
-void eps_debug_get_and_print_channel_stats(EPS_CHANNEL_t eps_channel);
-
+} EPS_CHANNEL_enum_t;
 
 
 // Typedef structs
@@ -268,21 +259,6 @@ typedef struct RESET_CONFIGURATION_PARAMETER {
 } RESET_CONFIG_PAR;
 
 
-typedef struct RESET_CONFIGURATION {
-	uint8_t status;
-} RESET_CONFIGURATION;
-
-typedef struct LOAD_CONFIGURATION {
-	uint8_t status;
-} LOAD_CONFIGURATION;
-
-
-typedef struct SAVE_CONFIGURATION {
-	uint8_t status;
-} SAVE_CONFIGURATION;
-
-
-
 typedef struct conditioning_channel_short_datatype {
 	uint16_t VOLT_IN_MPPT;
 	uint16_t CURR_IN_MPPT;
@@ -355,51 +331,35 @@ typedef struct GET_PIU_HK {
 } GET_PIU_HK;
 
 
-typedef struct CORRECT_TIME_S {
-	uint8_t status;
-} CORRECT_TIME_S;
-
-
-
-typedef struct ZERO_RESET_CAUSE_COUNTERS_S {
-	uint8_t status;
-} ZERO_RESET_CAUSE_COUNTERS_S;
-
-
+uint8_t eps_debug_get_and_print_channel_stats(EPS_CHANNEL_enum_t eps_channel);
 
 void eps_debug_uart_print_sys_stat(eps_result_sys_stat_t* sys_stat);
 
 
 uint8_t eps_system_reset();
-// 20230406 Frank:
 // - This function is used to send a system reset command to the ISIS Power system.
 // - We are not excepting to receive anything useful back, or we may not even be able to poll the power system for a reply while it is resetting. Therefore its return type is "void".
 // - CC indicates the type of command that will be sent to the power system. In this case, the user will be sending CC of "0xAA"
 
 
 uint8_t eps_no_operation();
-//20230416 Frank:
 // This function is useful to check the functionality of the power system.
 
 
 uint8_t eps_cancel_oper();
-//20230416 Frank:
 // This function switches off any command enable output bus channels.
 
 
 uint8_t eps_watchdog();
-//20230416 Frank:
 // This function resets the watchdog timer, keeping the power system from resetting.
 
 
 uint8_t eps_output_bus_group_on(uint16_t CH_BF,  uint16_t CH_EXT_BF);
-// 20230415 Frank:
 // The bits enabled as '1's in CH_BF are the ones that are switched on. A '0' means no action on the bus.
 // If the busses 16-31 specified by CH_EXT_BF are not used, then the user will specify CH_EXT_BF as 0x00 to leave those busses unchanged.
 
 
 uint8_t eps_output_bus_group_off(uint16_t CH_BF,  uint16_t CH_EXT_BF);
-// 20230415 Frank:
 // The bits enabled as '1's in CH_BF are the ones that are switched off. A '0' means no action on the bus.
 // If the busses 16-31 specified by CH_EXT_BF are not used, then the user will specify CH_EXT_BF as 0x00 to leave those busses unchanged.
 
@@ -410,92 +370,86 @@ uint8_t eps_output_bus_group_state(uint16_t CH_BF,  uint16_t CH_EXT_BF);
 
 
 uint8_t eps_output_bus_channel_on(uint8_t CH_IDX);
-//20230416 Frank:
 // With this function, you will only switch one output bus to be ON. The power system will reject the switching on of multiple bus channels if this command is used.
 
 
 uint8_t eps_output_bus_channel_off(uint8_t CH_IDX);
-//20230416 Frank:
 // With this function, you will only switch one output bus to be ON. The power system will reject the switching on of multiple bus channels if this command is used.
 // Keep in mind that this function cannot switch off channels that are forced enabled (FE), and doing so will return an error.
 
-void eps_switch_to_nominal_mode();
-//20230418 Frank:
+uint8_t eps_switch_to_nominal_mode();
 //This function is used for switching the Power System into Nomimal mode. The user does not need to input any parameters into the function, therefore it is void.
 //This function doesn't need to return anything.
 
-void eps_switch_to_safety_mode();
-//20230418 Frank:
+uint8_t eps_switch_to_safety_mode();
 //This function is used for switching the Power System into Safety mode. The user does not need to input any parameters into the function, therefore it is void.
 //This function doesn't need to return anything.
 
 uint8_t eps_get_sys_status(eps_result_sys_stat_t* result_dest);
 
-void eps_get_pdu_piu_overcurrent_fault_state(PDU_PIU_OFS* result_dest);
+uint8_t eps_get_pdu_piu_overcurrent_fault_state(PDU_PIU_OFS* result_dest);
 // Prepare the response buffer with output bus over current events. Over current fault counters are incremented each time a bus is latched off due to an overcurrent event. (Overcurrent event is when normal load current is exceeded)
 
-void eps_get_pbu_abf_placed_state(PBU_ABF_PS* result_dest);
+uint8_t eps_get_pbu_abf_placed_state(PBU_ABF_PS* result_dest);
 // Prepare the response buffer with ABF placed state information.
 
-void eps_get_pdu_housekeeping_data_raw(PDU_HK_D* result_dest);
+uint8_t eps_get_pdu_housekeeping_data_raw(PDU_HK_D* result_dest);
 //are the response buffer with housekeeping data. The housekeeping data is returned in raw form, as received from the hardware, unaltered by the main controller.
 
-void eps_get_pdu_housekeeping_data_eng(PDU_HK_D* result_dest);
+uint8_t eps_get_pdu_housekeeping_data_eng(PDU_HK_D* result_dest);
 //Prepare the response buffer with housekeeping data. The housekeeping data is returned in engineering form.
 
-void eps_get_pdu_housekeeping_data_running_average(PDU_HK_D* result_dest);
+uint8_t eps_get_pdu_housekeeping_data_running_average(PDU_HK_D* result_dest);
 //Prepare the response buffer with running average housekeeping data. The housekeeping data is returned in engineering values.
 
-void eps_get_pbu_housekeeping_data_raw(PBU_HK_D* result_dest);
+uint8_t eps_get_pbu_housekeeping_data_raw(PBU_HK_D* result_dest);
 //Prepare the response buffer with housekeeping data. The housekeeping data is returned in raw form, as received from the hardware, unaltered by the main controller.
 
-void eps_get_pbu_housekeeping_data_eng(PBU_HK_D* result_dest);
+uint8_t eps_get_pbu_housekeeping_data_eng(PBU_HK_D* result_dest);
 //Prepare the response buffer with housekeeping data. The housekeeping data is returned in engineering values.
 
-void eps_get_pbu_housekeeping_data_running_average(PBU_HK_D* result_dest);
+uint8_t eps_get_pbu_housekeeping_data_running_average(PBU_HK_D* result_dest);
 //Prepare the response buffer with running average housekeeping data. The housekeeping data is returned in engineering values.
 
-void eps_get_pcu_housekeeping_data_raw(PCU_HK_D* result_dest);
+uint8_t eps_get_pcu_housekeeping_data_raw(PCU_HK_D* result_dest);
 //Prepare the response buffer with housekeeping data. The housekeeping data is returned in raw form, as received from the hardware, unaltered by the main controller.
 
-void eps_get_pcu_housekeeping_data_eng(PCU_HK_D* result_dest);
+uint8_t eps_get_pcu_housekeeping_data_eng(PCU_HK_D* result_dest);
 //Prepare the response buffer with housekeeping data. The housekeeping data is returned in engineering values.
 
-void eps_get_pcu_housekeeping_data_running_average(PCU_HK_D* result_dest);
+uint8_t eps_get_pcu_housekeeping_data_running_average(PCU_HK_D* result_dest);
 //Prepare the response buffer with running average housekeeping data. The housekeeping data is returned in engineering values.
 
-void eps_get_configuration_parameter(GET_CONFIG_PARAM* result_dest, uint16_t PAR_ID);
+uint8_t eps_get_configuration_parameter(GET_CONFIG_PARAM* result_dest, uint16_t PAR_ID);
 //get the value of a configuration parameter.
 
-void eps_set_configuration_parameter(SET_CONFIG_PARAM* result_dest, uint16_t PAR_ID, uint8_t PAR_VAL);
+uint8_t eps_set_configuration_parameter(SET_CONFIG_PARAM* result_dest, uint16_t PAR_ID, uint8_t PAR_VAL);
 //change a configuration parameter. The change will take effect immediately and any function using the parameter will use the new value.
 
-void eps_reset_configuration_parameter(RESET_CONFIG_PAR* result_dest, uint16_t PAR_ID);
+uint8_t eps_reset_configuration_parameter(RESET_CONFIG_PAR* result_dest, uint16_t PAR_ID);
 //reset a parameter to its default hard-coded value. All parameters have this value at system power-up or after the software reset command.
 
-void eps_reset_configuration(RESET_CONFIGURATION* result_dest);
+uint8_t eps_reset_configuration();
 //Reset all configuration parameters to hard-coded defaults, discarding any changes made, in volatile memory (only!).
 
-void eps_load_configuration(LOAD_CONFIGURATION* result_dest);
+uint8_t eps_load_configuration();
 //Load all configuration parameters from non-volatile memory, discarding any changes made in volatile memory.
 
-void eps_save_configuration(SAVE_CONFIGURATION* result_dest);
+uint8_t eps_save_configuration();
 //Commit all read/write configuration parameters kept in volatile memory to non-volatile memory.
 
-void eps_get_piu_housekeeping_data_raw(GET_PIU_HK* result_dest);
+uint8_t eps_get_piu_housekeeping_data_raw(GET_PIU_HK* result_dest);
 //Prepare the response buffer with housekeeping data. The housekeeping data is returned in raw form, as received from the hardware, unaltered by the main controller.
 
-void eps_get_piu_housekeeping_data_eng(GET_PIU_HK* result_dest);
+uint8_t eps_get_piu_housekeeping_data_eng(GET_PIU_HK* result_dest);
 //Prepare the response buffer with housekeeping data. The housekeeping data is returned in engineering values.
 
-void eps_correct_time(CORRECT_TIME_S* result_dest, int32_t time_correction);
+uint8_t eps_correct_time(int32_t time_correction);
 //Correct the unit’s unix time with the specified amount of seconds
 
-void eps_zero_reset_cause_counters(ZERO_RESET_CAUSE_COUNTERS_S* result_dest);
+uint8_t eps_zero_reset_cause_counters();
 //Write all reset cause counters to zero in persistent memory.
 
 
 
-#endif /* INC_EPS_DRIVER_H_ */
-
-
+#endif /* __INCLUDE_GUARD__EPS_DRIVER_H__ */

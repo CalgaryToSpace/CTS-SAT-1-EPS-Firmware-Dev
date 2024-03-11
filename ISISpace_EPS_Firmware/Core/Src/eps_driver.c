@@ -17,7 +17,9 @@ const uint8_t EPS_COMMAND_STID = 0x1A; // "System Type Identifier (STID)" (Softw
 const uint8_t EPS_COMMAND_IVID = 0x07; // "Interface Version Identifier (IVID)" (Software ICD, page 18)
 const uint8_t EPS_COMMAND_BID = 0x01; // "Board Identifier (BID)" (Software ICD, page 20)
 
-const uint8_t EPS_ENABLE_DEBUG_PRINT = 1; // 0 to disable
+const uint8_t EPS_DEFAULT_RX_LEN_MIN = 5; // for commands with no response params, 5 bytes are returned
+
+const uint8_t EPS_ENABLE_DEBUG_PRINT = 1; // bool; 0 to disable
 
 const uint32_t EPS_MAX_RESPONSE_POLL_TIME_MS = 100;
 
@@ -114,12 +116,15 @@ uint8_t eps_send_cmd_get_response(
 }
 
 
-void eps_debug_get_and_print_channel_stats(EPS_CHANNEL_t eps_channel) {
+uint8_t eps_debug_get_and_print_channel_stats(EPS_CHANNEL_enum_t eps_channel) {
 	PDU_HK_D* EPS_data_received;
 
 	VIPD_eng_t ch_vip_eng;
 
-	eps_get_pdu_housekeeping_data_eng(EPS_data_received);
+	const uint8_t comms_err = eps_get_pdu_housekeeping_data_eng(EPS_data_received);
+	if (comms_err != 0) {
+		return comms_err;
+	}
 
 	if (eps_channel == 0) {
 		ch_vip_eng.voltage_mV = EPS_data_received->VIP_CH00.vipd_array[0]; //Voltage measurement in 2 bytes
@@ -146,6 +151,8 @@ void eps_debug_get_and_print_channel_stats(EPS_CHANNEL_t eps_channel) {
 		ch_vip_eng.power_cW
 	);
 	debug_uart_print_str(msg1);
+
+	return 0;
 }
 
 void eps_debug_uart_print_sys_stat(eps_result_sys_stat_t* sys_stat) {
@@ -159,24 +166,38 @@ void eps_debug_uart_print_sys_stat(eps_result_sys_stat_t* sys_stat) {
 	debug_uart_print_str(msg1);
 }
 
+uint8_t eps_run_argumentless_cmd(uint8_t command_code) {
+	const uint8_t cmd_len = 4;
+	const uint8_t rx_len = EPS_DEFAULT_RX_LEN_MIN;
 
-//Driver functions
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
+	
+	cmd_buf[0] = EPS_COMMAND_STID;
+	cmd_buf[1] = EPS_COMMAND_IVID;
+	cmd_buf[2] = command_code; // "CC"
+	cmd_buf[3] = EPS_COMMAND_BID;
+
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	return comms_err;
+}
 
 uint8_t eps_system_reset() {
 	const uint8_t CC = 0xAA;
-	const uint8_t Reset_key = 0xA6;
+	const uint8_t reset_key = 0xA6;
 
-	uint8_t cmd_buf[5];
+	const uint8_t cmd_len = 5;
+	uint8_t cmd_buf[cmd_len];
+	const uint8_t rx_len = EPS_DEFAULT_RX_LEN_MIN;
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
-	cmd_buf[4] = Reset_key;
+	cmd_buf[4] = reset_key;
 
-	uint8_t rx_buf[5];
-	uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, 5, rx_buf, 5);
-
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
 	return comms_err;
 }
 
@@ -184,63 +205,26 @@ uint8_t eps_system_reset() {
 uint8_t eps_no_operation() {
 	// FIXME: it appears that the no_operation command does not return it's own CC+1 in the RC field
 	const uint8_t CC = 0x02;
-    uint8_t cmd_buf[4];
-
-	cmd_buf[0] = EPS_COMMAND_STID;
-	cmd_buf[1] = EPS_COMMAND_IVID;
-	cmd_buf[2] = CC;
-	cmd_buf[3] = EPS_COMMAND_BID;
-
-	uint8_t rx_buf[5];
-	uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, 4, rx_buf, 5);
-
-	uint8_t status = rx_buf[4];
-
-	return status;
+	return eps_run_argumentless_cmd(CC);
 }
-
 
 uint8_t eps_cancel_oper() {
 	const uint8_t CC = 0x04;
-	uint8_t cmd_buf[4];
-
-	cmd_buf[0] = EPS_COMMAND_STID;
-	cmd_buf[1] = EPS_COMMAND_IVID;
-	cmd_buf[2] = CC;
-	cmd_buf[3] = EPS_COMMAND_BID;
-
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
-
-
-	uint8_t rx_buf[5];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
-
-	uint8_t status = rx_buf[4];
-
-	return status;
+	return eps_run_argumentless_cmd(CC);
 }
-
 
 uint8_t eps_watchdog() {
 	const uint8_t CC = 0x06;
-	uint8_t cmd_buf[4];
-
-	cmd_buf[0] = EPS_COMMAND_STID;
-	cmd_buf[1] = EPS_COMMAND_IVID;
-	cmd_buf[2] = CC;
-	cmd_buf[3] = EPS_COMMAND_BID;
-
-	uint8_t rx_buf[5];
-	uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, 4, rx_buf, 5);
-
-	return comms_err;
+	return eps_run_argumentless_cmd(CC);
 }
-
 
 uint8_t eps_output_bus_group_on(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
 	const uint8_t CC = 0x10;
-	uint8_t cmd_buf[8];
+	const uint8_t cmd_len = 8;
+	const uint8_t rx_len = EPS_DEFAULT_RX_LEN_MIN;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
@@ -251,69 +235,62 @@ uint8_t eps_output_bus_group_on(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
 	cmd_buf[6] = CH_EXT_BF & 0x00FF;
 	cmd_buf[7] = CH_EXT_BF >> 8;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 8, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[5];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
-
-	uint8_t status = rx_buf[4];
-
-	return status;
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	return comms_err;
 }
 
 
 uint8_t eps_output_bus_group_off(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
 	const uint8_t CC = 0x12;
-	uint8_t cmd_buf[8];
+	const uint8_t cmd_len = 8;
+	const uint8_t rx_len = EPS_DEFAULT_RX_LEN_MIN;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
-	cmd_buf[4]= CH_BF & 0x00FF;
+	cmd_buf[4] = CH_BF & 0x00FF;
 	cmd_buf[5] = CH_BF >> 8;
 	cmd_buf[6] = CH_EXT_BF & 0x00FF;
 	cmd_buf[7] = CH_EXT_BF >> 8;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 8, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[5];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
-
-	uint8_t status = rx_buf[4];
-
-	return status;
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	return comms_err;
 }
 
 
 uint8_t eps_output_bus_group_state(uint16_t CH_BF,  uint16_t CH_EXT_BF) {
 	const uint8_t CC = 0x14;
-	uint8_t cmd_buf[8];
+	const uint8_t cmd_len = 8;
+	const uint8_t rx_len = EPS_DEFAULT_RX_LEN_MIN;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
-	cmd_buf[4] = CH_BF;
-	cmd_buf[6] = CH_EXT_BF;
+	cmd_buf[4] = CH_BF & 0x00FF;
+	cmd_buf[5] = CH_BF >> 8;
+	cmd_buf[6] = CH_EXT_BF & 0x00FF;
+	cmd_buf[7] = CH_EXT_BF >> 8;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 8, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[5];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
-
-	uint8_t status = rx_buf[4];
-
-	return status;
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	return comms_err;
 }
 
 
 uint8_t eps_output_bus_channel_on(uint8_t CH_IDX) {
 	const uint8_t CC = 0x16;
-	uint8_t cmd_buf[5];
+	const uint8_t cmd_len = 5;
+	const uint8_t rx_len = EPS_DEFAULT_RX_LEN_MIN;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
@@ -321,21 +298,18 @@ uint8_t eps_output_bus_channel_on(uint8_t CH_IDX) {
 	cmd_buf[3] = EPS_COMMAND_BID;
 	cmd_buf[4] = CH_IDX;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 5, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[5];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
-
-	uint8_t status = rx_buf[4];
-
-	return status;
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	return comms_err;
 }
 
 
 uint8_t eps_output_bus_channel_off(uint8_t CH_IDX) {
 	const uint8_t CC = 0x18;
-	uint8_t cmd_buf[5];
+	const uint8_t cmd_len = 5;
+	const uint8_t rx_len = EPS_DEFAULT_RX_LEN_MIN;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
@@ -343,56 +317,37 @@ uint8_t eps_output_bus_channel_off(uint8_t CH_IDX) {
 	cmd_buf[3] = EPS_COMMAND_BID;
 	cmd_buf[4] = CH_IDX;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 5, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[5];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
-
-	uint8_t status = rx_buf[4];
-
-	return status;
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	return comms_err;
 }
 
 
-void eps_switch_to_nominal_mode() {
+uint8_t eps_switch_to_nominal_mode() {
 	const uint8_t CC = 0x30;
-	uint8_t cmd_buf[4];
-
-	cmd_buf[0] = EPS_COMMAND_STID;
-	cmd_buf[1] = EPS_COMMAND_IVID;
-	cmd_buf[2] = CC;
-	cmd_buf[3] = EPS_COMMAND_BID;
-
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	return eps_run_argumentless_cmd(CC);
 }
 
 
-void eps_switch_to_safety_mode() {
+uint8_t eps_switch_to_safety_mode() {
 	const uint8_t CC = 0x32;
-	uint8_t cmd_buf[4];
-
-	cmd_buf[0] = EPS_COMMAND_STID;
-	cmd_buf[1] = EPS_COMMAND_IVID;
-	cmd_buf[2] = CC;
-	cmd_buf[3] = EPS_COMMAND_BID;
-
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
+	return eps_run_argumentless_cmd(CC);
 }
 
 
 uint8_t eps_get_sys_status(eps_result_sys_stat_t* result_dest) {
 	const uint8_t CC = 0x40;
-	uint8_t cmd_buf[4];
+	const uint8_t cmd_len = 4;
+	const uint8_t rx_len = 36;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
 
-	uint8_t rx_buf[36];
-	uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, 4, rx_buf, 36);
-
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
 	if (comms_err != 0) {
 		return comms_err;
 	}
@@ -419,20 +374,23 @@ uint8_t eps_get_sys_status(eps_result_sys_stat_t* result_dest) {
 }
 
 
-void eps_get_pdu_piu_overcurrent_fault_state(PDU_PIU_OFS* result_dest) {
+uint8_t eps_get_pdu_piu_overcurrent_fault_state(PDU_PIU_OFS* result_dest) {
 	const uint8_t CC = 0x42;
-	uint8_t cmd_buf[4];
+	const uint8_t cmd_len = 4;
+	const uint8_t rx_len = 78;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[78];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 78, HAL_MAX_DELAY);
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	if (comms_err != 0) {
+		return comms_err;
+	}
 
 	result_dest->status = rx_buf[4];
 	result_dest->stat_ch_on = rx_buf[6];
@@ -473,51 +431,58 @@ void eps_get_pdu_piu_overcurrent_fault_state(PDU_PIU_OFS* result_dest) {
 	result_dest->ocf_cnt_ch30 = rx_buf[74];
 	result_dest->ocf_cnt_ch31 = rx_buf[76];
 
+	return 0;
 }
 
 
-//__________________________________________________________________________________________________
 
-void eps_get_pbu_abf_placed_state(PBU_ABF_PS* result_dest) {
+
+uint8_t eps_get_pbu_abf_placed_state(PBU_ABF_PS* result_dest) {
 	const uint8_t CC = 0x44;
-	uint8_t cmd_buf[4];
+	const uint8_t cmd_len = 4;
+	const uint8_t rx_len = 8;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[8];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 8, HAL_MAX_DELAY);
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	if (comms_err != 0) {
+		return comms_err;
+	}
 
 	result_dest->status = rx_buf[4];
 	result_dest->ABF_Placed_0 = rx_buf[6];
 	result_dest->ABF_Placed_1 = rx_buf[7];
 
-
+	return 0;
 }
 
-//_________________________________________________________________________________________________
 
 
 
-void eps_get_pdu_housekeeping_data_raw(PDU_HK_D* result_dest) {
+
+uint8_t eps_get_pdu_housekeeping_data_raw(PDU_HK_D* result_dest) {
 	const uint8_t CC = 0x50;
-	uint8_t cmd_buf[4];
+	const uint8_t cmd_len = 4;
+	const uint16_t rx_len = 258;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[258];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 258, HAL_MAX_DELAY);
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	if (comms_err != 0) {
+		return comms_err;
+	}
 
 	result_dest->status = rx_buf[4];
 	result_dest->VOLT_BRDSUP = rx_buf[6];
@@ -569,24 +534,28 @@ void eps_get_pdu_housekeeping_data_raw(PDU_HK_D* result_dest) {
 	result_dest->VIP_CH30.vipd_array[0] = rx_buf[246];
 	result_dest->VIP_CH31.vipd_array[0] = rx_buf[252];
 
+	return 0;
 }
 
-//_________________________________________________________________________________________________
 
-void eps_get_pdu_housekeeping_data_eng(PDU_HK_D* result_dest) {
+
+uint8_t eps_get_pdu_housekeeping_data_eng(PDU_HK_D* result_dest) {
 	const uint8_t CC = 0x52;
-	uint8_t cmd_buf[4];
+	const uint8_t cmd_len = 4;
+	const uint16_t rx_len = 258;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[258];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 258, HAL_MAX_DELAY);
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	if (comms_err != 0) {
+		return comms_err;
+	}
 
 	result_dest->status = rx_buf[4];
 	result_dest->VOLT_BRDSUP = rx_buf[6];
@@ -638,25 +607,29 @@ void eps_get_pdu_housekeeping_data_eng(PDU_HK_D* result_dest) {
 	result_dest->VIP_CH30.vipd_array[0] = rx_buf[246];
 	result_dest->VIP_CH31.vipd_array[0] = rx_buf[252];
 
+	return 0;
 }
 
-//__________________________________________________________________________________________________________________
 
 
-void eps_get_pdu_housekeeping_data_running_average(PDU_HK_D* result_dest) {
+
+uint8_t eps_get_pdu_housekeeping_data_running_average(PDU_HK_D* result_dest) {
 	const uint8_t CC = 0x54;
-	uint8_t cmd_buf[4];
+	const uint8_t cmd_len = 4;
+	const uint16_t rx_len = 258;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[258];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 258, HAL_MAX_DELAY);
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	if (comms_err != 0) {
+		return comms_err;
+	}
 
 	result_dest->status = rx_buf[4];
 	result_dest->VOLT_BRDSUP = rx_buf[6];
@@ -708,24 +681,28 @@ void eps_get_pdu_housekeeping_data_running_average(PDU_HK_D* result_dest) {
 	result_dest->VIP_CH30.vipd_array[0] = rx_buf[246];
 	result_dest->VIP_CH31.vipd_array[0] = rx_buf[252];
 
+	return 0;
 }
 
-//_____________________________________________________________________________________________________________________________
 
-void eps_get_pbu_housekeeping_data_raw(PBU_HK_D* result_dest) {
+
+uint8_t eps_get_pbu_housekeeping_data_raw(PBU_HK_D* result_dest) {
 	const uint8_t CC = 0x60;
-	uint8_t cmd_buf[4];
+	const uint8_t cmd_len = 4;
+	const uint8_t rx_len = 84;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[84];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 84, HAL_MAX_DELAY);
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	if (comms_err != 0) {
+		return comms_err;
+	}
 
 	result_dest->status = rx_buf[4];
 	result_dest->VOLT_BRDSUP = rx_buf[6];
@@ -765,25 +742,28 @@ void eps_get_pbu_housekeeping_data_raw(PBU_HK_D* result_dest) {
 	result_dest->BP3.BAT_TEMP2 = rx_buf[80];
 	result_dest->BP3.BAT_TEMP3 = rx_buf[82];
 
-
+	return 0;
 }
 
-//_______________________________________________________________________________________________
 
-void eps_get_pbu_housekeeping_data_eng(PBU_HK_D* result_dest) {
+
+uint8_t eps_get_pbu_housekeeping_data_eng(PBU_HK_D* result_dest) {
 	const uint8_t CC = 0x62;
-	uint8_t cmd_buf[4];
+	const uint8_t cmd_len = 4;
+	const uint8_t rx_len = 84;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[84];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 84, HAL_MAX_DELAY);
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	if (comms_err != 0) {
+		return comms_err;
+	}
 
 	result_dest->status = rx_buf[4];
 	result_dest->VOLT_BRDSUP = rx_buf[6];
@@ -823,24 +803,28 @@ void eps_get_pbu_housekeeping_data_eng(PBU_HK_D* result_dest) {
 	result_dest->BP3.BAT_TEMP2 = rx_buf[80];
 	result_dest->BP3.BAT_TEMP3 = rx_buf[82];
 
+	return 0;
 }
 
-//________________________________________________________________________________________
 
-void eps_get_pbu_housekeeping_data_running_average(PBU_HK_D* result_dest) {
+
+uint8_t eps_get_pbu_housekeeping_data_running_average(PBU_HK_D* result_dest) {
 	const uint8_t CC = 0x64;
-	uint8_t cmd_buf[4];
+	const uint8_t cmd_len = 4;
+	const uint8_t rx_len = 84;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[84];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 84, HAL_MAX_DELAY);
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	if (comms_err != 0) {
+		return comms_err;
+	}
 
 	result_dest->status = rx_buf[4];
 	result_dest->VOLT_BRDSUP = rx_buf[6];
@@ -887,24 +871,28 @@ void eps_get_pbu_housekeeping_data_running_average(PBU_HK_D* result_dest) {
 	result_dest->BP3.BAT_TEMP3 = rx_buf[82];
 
 
+	return 0;
 }
 
-//_________________________________________________________________________________________________
 
-void eps_get_pcu_housekeeping_data_raw(PCU_HK_D* result_dest) {
+
+uint8_t eps_get_pcu_housekeeping_data_raw(PCU_HK_D* result_dest) {
 	const uint8_t CC = 0x70;
-	uint8_t cmd_buf[4];
+	const uint8_t cmd_len = 4;
+	const uint8_t rx_len = 72;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[72];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 72, HAL_MAX_DELAY);
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	if (comms_err != 0) {
+		return comms_err;
+	}
 
 	result_dest->status = rx_buf[4];
 	result_dest->VOLT_BRDSUP = rx_buf[6];
@@ -935,24 +923,28 @@ void eps_get_pcu_housekeeping_data_raw(PCU_HK_D* result_dest) {
 	result_dest->CC3.VOLT_OU_MPPT = rx_buf[68];
 	result_dest->CC3.CURR_OU_MPPT = rx_buf[70];
 
+	return 0;
 }
 
-//_______________________________________________________________________________________
 
-void eps_get_pcu_housekeeping_data_eng(PCU_HK_D* result_dest) {
+
+uint8_t eps_get_pcu_housekeeping_data_eng(PCU_HK_D* result_dest) {
 	const uint8_t CC = 0x72;
-	uint8_t cmd_buf[4];
+	const uint8_t cmd_len = 4;
+	const uint8_t rx_len = 72;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[72];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 72, HAL_MAX_DELAY);
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	if (comms_err != 0) {
+		return comms_err;
+	}
 
 	result_dest->status = rx_buf[4];
 	result_dest->VOLT_BRDSUP = rx_buf[6];
@@ -982,24 +974,29 @@ void eps_get_pcu_housekeeping_data_eng(PCU_HK_D* result_dest) {
 	result_dest->CC3.CURR_IN_MPPT = rx_buf[66];
 	result_dest->CC3.VOLT_OU_MPPT = rx_buf[68];
 	result_dest->CC3.CURR_OU_MPPT = rx_buf[70];
+
+	return 0;
 }
 
-//_______________________________________________________________________________________
 
-void eps_get_pcu_housekeeping_data_running_average(PCU_HK_D* result_dest) {
+
+uint8_t eps_get_pcu_housekeeping_data_running_average(PCU_HK_D* result_dest) {
 	const uint8_t CC = 0x74;
-	uint8_t cmd_buf[4];
+	const uint8_t cmd_len = 4;
+	const uint8_t rx_len = 72;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[72];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 72, HAL_MAX_DELAY);
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	if (comms_err != 0) {
+		return comms_err;
+	}
 
 	result_dest->status = rx_buf[4];
 	result_dest->VOLT_BRDSUP = rx_buf[6];
@@ -1030,89 +1027,109 @@ void eps_get_pcu_housekeeping_data_running_average(PCU_HK_D* result_dest) {
 	result_dest->CC3.VOLT_OU_MPPT = rx_buf[68];
 	result_dest->CC3.CURR_OU_MPPT = rx_buf[70];
 
+	return 0;
 }
 
-//----------------------------------------------------------------------------------------------------
 
-void eps_get_configuration_parameter(GET_CONFIG_PARAM* result_dest, uint16_t PAR_ID) {
+
+uint8_t eps_get_configuration_parameter(GET_CONFIG_PARAM* result_dest, uint16_t PAR_ID) {
 	const uint8_t CC = 0x82;
-	uint8_t cmd_buf[6];
+	const uint8_t cmd_len = 6;
+	const uint8_t rx_len = 16;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
+	
+	cmd_buf[4] = PAR_ID & 0x00FF;
+	cmd_buf[5] = PAR_ID >> 8;
 
-	cmd_buf[4] = PAR_ID;
-
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 6, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[16];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 16, HAL_MAX_DELAY);
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	if (comms_err != 0) {
+		return comms_err;
+	}
 
 	result_dest->status = rx_buf[4];
 	result_dest->PAR_ID = rx_buf[6];
 	result_dest->PAR_VAL = rx_buf[8];
 
+	return 0;
 }
 
-//-----------------------------------------------------------------------------------------------------
-void eps_set_configuration_parameter(SET_CONFIG_PARAM* result_dest, uint16_t PAR_ID, uint8_t PAR_VAL) {
+
+uint8_t eps_set_configuration_parameter(SET_CONFIG_PARAM* result_dest, uint16_t PAR_ID, uint8_t PAR_VAL) {
 	const uint8_t CC = 0x84;
-	uint8_t cmd_buf[14];
+	const uint8_t cmd_len = 14;
+	const uint8_t rx_len = 16;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
-	cmd_buf[3] = CC;
-	cmd_buf[2] = EPS_COMMAND_BID;
-
-	cmd_buf[4] = PAR_ID;
+	cmd_buf[2] = CC;
+	cmd_buf[3] = EPS_COMMAND_BID;
+	
+	cmd_buf[4] = PAR_ID & 0x00FF;
+	cmd_buf[5] = PAR_ID >> 8;
 	cmd_buf[6] = PAR_VAL;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 14, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[16];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 16, HAL_MAX_DELAY);
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	if (comms_err != 0) {
+		return comms_err;
+	}
 
 	result_dest->status = rx_buf[4];
 	result_dest->PAR_ID = rx_buf[6];
 	result_dest->PAR_VAL = rx_buf[8];
 
+	return 0;
 }
 
-//-----------------------------------------------------------------------------------------------------
 
-void eps_reset_configuration_parameter(RESET_CONFIG_PAR* result_dest, uint16_t PAR_ID) {
+
+uint8_t eps_reset_configuration_parameter(RESET_CONFIG_PAR* result_dest, uint16_t PAR_ID) {
 	const uint8_t CC = 0x86;
-	uint8_t cmd_buf[6];
+	const uint8_t cmd_len = 6;
+	const uint8_t rx_len = 16;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
+	
+	cmd_buf[4] = PAR_ID & 0x00FF;
+	cmd_buf[5] = PAR_ID >> 8;
 
-	cmd_buf[4] = PAR_ID;
-
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 6, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[16];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 16, HAL_MAX_DELAY);
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	if (comms_err != 0) {
+		return comms_err;
+	}
 
 	result_dest->status = rx_buf[4];
 	result_dest->PAR_ID = rx_buf[6];
 	result_dest->PAR_VAL = rx_buf[8];
+
+	return 0;
 }
 
-//---------------------------------------------------------------------------------------------------------
 
-void eps_reset_configuration(RESET_CONFIGURATION* result_dest) {
+
+uint8_t eps_reset_configuration() {
 	const uint8_t CC = 0x90;
-	uint8_t CONF_KEY = 0x87;
+	const uint8_t CONF_KEY = 0x87;
+	const uint8_t cmd_len = 5;
+	const uint8_t rx_len = 16; // FIXME: check; we're not currently using the result
 
-	uint8_t cmd_buf[5];
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
@@ -1121,23 +1138,18 @@ void eps_reset_configuration(RESET_CONFIGURATION* result_dest) {
 
 	cmd_buf[4] = CONF_KEY;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 5, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[16];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 16, HAL_MAX_DELAY);
-
-	result_dest->status = rx_buf[4];
-
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	return comms_err;
 }
 
-//---------------------------------------------------------------------------------------------------
-
-void eps_load_configuration(LOAD_CONFIGURATION* result_dest) {
+uint8_t eps_load_configuration() {
 	const uint8_t CC = 0x92;
-	uint8_t CONF_KEY = 0xA7;
+	const uint8_t CONF_KEY = 0xA7;
+	const uint8_t cmd_len = 5;
+	const uint8_t rx_len = EPS_DEFAULT_RX_LEN_MIN;
 
-	uint8_t cmd_buf[5];
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
@@ -1146,24 +1158,19 @@ void eps_load_configuration(LOAD_CONFIGURATION* result_dest) {
 
 	cmd_buf[4] = CONF_KEY;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 5, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[5];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
-
-	result_dest->status = rx_buf[4];
-
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	return comms_err;
 }
 
-//---------------------------------------------------------------------------------------------
-
-void eps_save_configuration(SAVE_CONFIGURATION* result_dest) {
+uint8_t eps_save_configuration() {
 	const uint8_t CC = 0x94;
-	uint8_t CONF_KEY = 0xA7;
-	uint16_t CHECKSUM = 0;
+	const uint8_t CONF_KEY = 0xA7;
+	const uint16_t CHECKSUM = 0; // FIXME: implement
+	const uint8_t cmd_len = 7;
+	const uint8_t rx_len = EPS_DEFAULT_RX_LEN_MIN;
 
-	uint8_t cmd_buf[7];
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
@@ -1173,35 +1180,27 @@ void eps_save_configuration(SAVE_CONFIGURATION* result_dest) {
 	cmd_buf[4] = CONF_KEY;
 	cmd_buf[5] = CHECKSUM;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 7, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[5];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
-
-	result_dest->status = rx_buf[4];
-
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	return comms_err;
 }
 
-//------------------------------------------------------------------------------------------------------------------
-
-void eps_get_piu_housekeeping_data_raw(GET_PIU_HK* result_dest) {
+uint8_t eps_get_piu_housekeeping_data_raw(GET_PIU_HK* result_dest) {
 	const uint8_t CC = 0xA0;
-	uint8_t cmd_buf[4];
+	const uint8_t cmd_len = 4;
+	const uint16_t rx_len = 274;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[274];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 274, HAL_MAX_DELAY);
-
-	result_dest->status = rx_buf[4];
-
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	if (comms_err != 0) {
+		return comms_err;
+	}
 
 	result_dest->VOLT_BRDSUP = rx_buf[6];
 	result_dest->TEMP = rx_buf[8];
@@ -1282,27 +1281,26 @@ void eps_get_piu_housekeeping_data_raw(GET_PIU_HK* result_dest) {
 	result_dest->VIP_CH30.vipd_array[0] = rx_buf[262];
 	result_dest->VIP_CH31.vipd_array[0] = rx_buf[268];
 
+	return 0;
 }
 
-//-----------------------------------------------------------------------------------------------------
-
-void eps_get_piu_housekeeping_data_eng(GET_PIU_HK* result_dest) {
+uint8_t eps_get_piu_housekeeping_data_eng(GET_PIU_HK* result_dest) {
 	const uint8_t CC = 0xA2;
-	uint8_t cmd_buf[4];
+	const uint8_t cmd_len = 4;
+	const uint16_t rx_len = 274;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[274];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 274, HAL_MAX_DELAY);
-
-	result_dest->status = rx_buf[4];
-
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	if (comms_err != 0) {
+		return comms_err;
+	}
 
 	result_dest->VOLT_BRDSUP = rx_buf[6];
 	result_dest->TEMP = rx_buf[8];
@@ -1383,26 +1381,28 @@ void eps_get_piu_housekeeping_data_eng(GET_PIU_HK* result_dest) {
 	result_dest->VIP_CH30.vipd_array[0] = rx_buf[262];
 	result_dest->VIP_CH31.vipd_array[0] = rx_buf[268];
 
+	return 0;
 }
 
-//------------------------------------------------------------------------------------------
 
-void eps_get_piu_housekeeping_data_running_average(GET_PIU_HK* result_dest) {
+
+uint8_t eps_get_piu_housekeeping_data_running_average(GET_PIU_HK* result_dest) {
 	const uint8_t CC = 0xA4;
-	uint8_t cmd_buf[4];
+	const uint8_t cmd_len = 4;
+	const uint16_t rx_len = 274;
+
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 4, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[274];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 274, HAL_MAX_DELAY);
-
-	result_dest->status = rx_buf[4];
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	if (comms_err != 0) {
+		return comms_err;
+	}
 
 
 	result_dest->VOLT_BRDSUP = rx_buf[6];
@@ -1484,64 +1484,54 @@ void eps_get_piu_housekeeping_data_running_average(GET_PIU_HK* result_dest) {
 	result_dest->VIP_CH30.vipd_array[0] = rx_buf[262];
 	result_dest->VIP_CH31.vipd_array[0] = rx_buf[268];
 
+	return 0;
 }
 
-//--------------------------------------------------------------------------------------------------
 
-void eps_correct_time(CORRECT_TIME_S* result_dest, int32_t time_correction) {
+
+uint8_t eps_correct_time(int32_t time_correction) {
+	// Time correction in unix time (positive numbers added to time, negative values subtracted)
+	
 	const uint8_t CC = 0xC4;
-	//Time correction in unix time (positive numbers added to time, negative values subtracted)
-	int32_t CORRECTION = time_correction;
+	const uint8_t cmd_len = 8;
+	const uint8_t rx_len = EPS_DEFAULT_RX_LEN_MIN;
 
-	uint8_t cmd_buf[8];
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
 
-	cmd_buf[4] = CORRECTION;
+	// TODO: check the byte order and storage type of the signed numbers
+	cmd_buf[4] = time_correction & 0xFF;
+	cmd_buf[5] = (time_correction >> 8) & 0xFF;
+	cmd_buf[6] = (time_correction >> 16) & 0xFF;
+	cmd_buf[7] = (time_correction >> 24) & 0xFF;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 8, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[5];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
-
-	result_dest->status = rx_buf[4];
-
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	return comms_err;
 }
 
-//------------------------------------------------------------------------------------------------------
 
-void eps_zero_reset_cause_counters(ZERO_RESET_CAUSE_COUNTERS_S* result_dest) {
+
+uint8_t eps_zero_reset_cause_counters() {
 	const uint8_t CC = 0xC6;
-	//Time correction in unix time (positive numbers added to time, negative values subtracted)
-	int32_t ZERO_KEY = 0xA7;
+	const uint8_t ZERO_KEY = 0xA7;
+	const uint8_t cmd_len = 5;
+	const uint8_t rx_len = EPS_DEFAULT_RX_LEN_MIN;
 
-	uint8_t cmd_buf[5];
+	uint8_t cmd_buf[cmd_len];
+	uint8_t rx_buf[rx_len];
 
 	cmd_buf[0] = EPS_COMMAND_STID;
 	cmd_buf[1] = EPS_COMMAND_IVID;
 	cmd_buf[2] = CC;
 	cmd_buf[3] = EPS_COMMAND_BID;
-
+	
 	cmd_buf[4] = ZERO_KEY;
 
-	HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 5, HAL_MAX_DELAY);
-
-	uint8_t rx_buf[5];
-
-	HAL_I2C_Master_Receive(&hi2c1, EPS_I2C_ADDR, rx_buf, 5, HAL_MAX_DELAY);
-
-	result_dest->status = rx_buf[4];
-
+	const uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, cmd_len, rx_buf, rx_len);
+	return comms_err;
 }
-
-
-
-
-
-
-
-
