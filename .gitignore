@@ -15,6 +15,9 @@
 # VSCode Build Plugin #
 #######################
 **/build/
+**/.vscode/c_cpp_properties.json
+**/.vscode/settings.json
+**/STM32Make.make
 
 
 ######################

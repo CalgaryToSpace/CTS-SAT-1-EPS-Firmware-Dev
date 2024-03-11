@@ -3,7 +3,7 @@
         {
             "showDevDebugOutput": "parsed",
             "cwd": "${workspaceRoot}",
-            "executable": "./build/.elf",
+            "executable": "./build/ISISpace_EPS_Firmware.elf",
             "name": "Debug STM32",
             "request": "launch",
             "type": "cortex-debug",
@@ -17,7 +17,7 @@
         {
             "showDevDebugOutput": "parsed",
             "cwd": "${workspaceRoot}",
-            "executable": "./build/.elf",
+            "executable": "./build/ISISpace_EPS_Firmware.elf",
             "name": "Attach STM32",
             "request": "attach",
             "type": "cortex-debug",
