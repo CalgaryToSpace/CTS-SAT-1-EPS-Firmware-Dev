@@ -97,7 +97,11 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 
-3
+
+
+
+
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -169,17 +173,17 @@ int main(void)
     const uint16_t CH_EXT_BF = 0;
 
 
-    debug_uart_print_str("Executing eps_output_bus_group_on()...\n");
+    debug_uart_print_str("Executing eps_output_bus_group_on( <CH12> )...\n");
     HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7); //blue LED for bus group on
     eps_output_bus_group_on( CH_BF,   CH_EXT_BF);
     HAL_Delay(5000);
 
     debug_uart_print_str("Executing eps_system_reset()...\n");
     uint8_t comms_err = eps_system_reset();
-    if(comms_err) {
+    if (comms_err) {
     	debug_uart_print_str("System reset status successful\n" );
     }
-    else{
+    else {
     	debug_uart_print_str("System reset status unsuccessful\n" );
     }
 //    debug_uart_print_str("Executing eps_output_bus_group_off()...\n");

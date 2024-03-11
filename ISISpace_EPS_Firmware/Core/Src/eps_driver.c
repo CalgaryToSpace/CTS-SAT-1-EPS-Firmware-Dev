@@ -177,9 +177,6 @@ uint8_t eps_system_reset() {
 	uint8_t rx_buf[5];
 	uint8_t comms_err = eps_send_cmd_get_response(cmd_buf, 5, rx_buf, 5);
 
-
-	//HAL_I2C_Master_Transmit(&hi2c1, EPS_I2C_ADDR, cmd_buf, 5, 1000);
-
 	return comms_err;
 }
 
