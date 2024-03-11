@@ -1,17 +1,23 @@
-# Eclipse/CubeIDE
+######################
+# Eclipse/CubeIDE    #
+######################
 **/.metadata/
 **/.settings/
 **/[Rr]elease/
 **/[Dd]ebug/
 **/.launch/
-
 *.launch
 
 # DO NOT gitignore .cproject and .project files.
 # They are very important for CubeIDE to work properly.
 
+#######################
+# VSCode Build Plugin #
+#######################
+**/build/
 
 
+######################
 # OS generated files #
 ######################
 .DS_Store
