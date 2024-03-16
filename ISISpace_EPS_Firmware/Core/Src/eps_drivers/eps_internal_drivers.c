@@ -121,7 +121,7 @@ uint8_t eps_run_argumentless_cmd(uint8_t command_code) {
  ***** To create these pack_eps_... functions, the following ChatGPT prompt was used: ***** 
 
 =================================================================================================
-Write a C code snipet that packs values from the array "rx_buf" into an instance of the
+Write a C code snippet that packs values from the array "rx_buf" into an instance of the
 following struct (named "result_dest").
 
 In cases where more than one array element is used, please write it out explicitly by
