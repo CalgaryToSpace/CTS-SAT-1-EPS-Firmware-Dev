@@ -263,7 +263,4 @@ typedef struct {
     uint16_t stat_ch_ext_overcurrent_fault_bitfield;
 } eps_result_piu_housekeeping_data_eng_t;
 
-
-
-
 #endif /* __INCLUDE_GUARD__EPS_TYPES_H__ */
