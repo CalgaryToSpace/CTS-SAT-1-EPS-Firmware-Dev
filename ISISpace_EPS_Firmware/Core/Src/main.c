@@ -21,6 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "eps_drivers/eps_types_to_json.h"
 
 /* USER CODE END Includes */
 
@@ -124,31 +125,42 @@ int main(void)
     debug_uart_print_str("Executing eps_watchdog()...\n");
     eps_watchdog();
 
-    eps_result_system_status_t system_status;
-    debug_uart_print_str("Fetching system status info...\n");
-    uint8_t system_status_err = eps_get_system_status(&system_status);
+//    eps_result_system_status_t system_status;
+//    debug_uart_print_str("Fetching system status info...\n");
+//    uint8_t system_status_err = eps_get_system_status(&system_status);
+//
+//    // JSON Conversion COMMENTED OUT for debugging
+//    eps_result_system_status_t system_data;
+//    uint16_t json_output_str_len = 1500;
+//    char json_output_string[json_output_str_len];
+//
+//    uint8_t system_data_err = eps_result_system_status_TO_json(&system_data, json_output_string, json_output_str_len);
+//
+//    if (system_data_err == 0){ // If no error in json conversion
+//    	debug_uart_print_str("Converting EPS result to JSON string...\n");
+//    	debug_uart_print_str(json_output_string);
+//    }
+//
+//    else{ // error in json conversion
+//    	debug_uart_print_str("EPS to JSON conversion unsuccessful...system_data_err != 0\n");
+//    }
 
-    if (system_status_err == 0) {
-      debug_uart_print_str("System status info:\n");
-      eps_debug_uart_print_system_status(&system_status);
-    }
 
-    const uint16_t CH_BF = 1<< 12;
-    const uint16_t CH_EXT_BF = 0;
 
-    debug_uart_print_str("Executing eps_output_bus_group_on( <CH12> )...\n");
-    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7); //blue LED for bus group on
-    eps_output_bus_group_on( CH_BF,   CH_EXT_BF);
-    HAL_Delay(5000);
+//    if (system_status_err == 0) {
+//    	debug_uart_print_str("System status info:\n");
+//    	eps_debug_uart_print_system_status(&system_status);
+//    }
 
-    debug_uart_print_str("Executing eps_system_reset()...\n");
-    uint8_t comms_err = eps_system_reset();
-    if (comms_err) {
-    	debug_uart_print_str("System reset status successful\n" );
-    }
-    else {
-    	debug_uart_print_str("System reset status unsuccessful\n" );
-    }
+//    const uint16_t CH_BF = 1<< 12;
+//    const uint16_t CH_EXT_BF = 0;
+//
+//    debug_uart_print_str("Executing eps_output_bus_group_on( <CH12> )...\n");
+//    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7); //blue LED for bus group on
+//    eps_output_bus_group_on( CH_BF,   CH_EXT_BF);
+//    HAL_Delay(5000);
+
+
 //    debug_uart_print_str("Executing eps_output_bus_group_off()...\n");
 //    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
 //    eps_output_bus_group_off( CH_BF,  CH_EXT_BF);

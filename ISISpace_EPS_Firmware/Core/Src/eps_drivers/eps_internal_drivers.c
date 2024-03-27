@@ -38,16 +38,16 @@ uint8_t eps_send_cmd_get_response(const uint8_t cmd_buf[], uint8_t cmd_buf_len, 
 	while (get_uptime_ms() - start_rx_time_ms < EPS_MAX_RESPONSE_POLL_TIME_MS) {
 		HAL_StatusTypeDef rx_status = HAL_I2C_Master_Receive(
 				&hi2c1, EPS_I2C_ADDR, rx_buf, rx_buf_len, 50);
-		if (rx_status != HAL_OK) {
-			// this is a bad an unexpected error; return "there's a problem"
-			// TODO: consider making this a retry case as well, as it happens randomly sometimes
-			if (EPS_ENABLE_DEBUG_PRINT) {
-				char msg[200];
-				sprintf(msg, "OBC->EPS ERROR: rx_status != HAL_OK (%d)\n", rx_status);
-				debug_uart_print_str(msg);
-			}
-			return 3;
-		}
+//		if (rx_status != HAL_OK) {
+//			// this is a bad an unexpected error; return "there's a problem"
+//			// TODO: consider making this a retry case as well, as it happens randomly sometimes
+//			if (EPS_ENABLE_DEBUG_PRINT) {
+//				char msg[200];
+//				sprintf(msg, "OBC->EPS ERROR: rx_status != HAL_OK (%d)\n", rx_status);
+//				debug_uart_print_str(msg);
+//			}
+//			return 3;
+//		}
 
 		if (rx_buf[0] == 0xFF) {
 			// quintessential "not ready" response; try again
