@@ -148,7 +148,7 @@ int main(void)
 //    }
 //    else {
 //    	debug_uart_print_str("System reset status unsuccessful\n" );
-    }
+//    }
 //    debug_uart_print_str("Executing eps_output_bus_group_off()...\n");
 //    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
 //    eps_output_bus_group_off( CH_BF,  CH_EXT_BF);
