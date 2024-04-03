@@ -129,7 +129,7 @@ int main(void)
     uint8_t system_status_err = eps_get_system_status(&system_status);
 
     if (system_status_err == 0) {
-      debug_uart_print_str("System status info:\n");
+      debug_uart_print_str("System status info, no error!:\n");
       eps_debug_uart_print_system_status(&system_status);
     }
 
@@ -141,13 +141,13 @@ int main(void)
     eps_output_bus_group_on( CH_BF,   CH_EXT_BF);
     HAL_Delay(5000);
 
-    debug_uart_print_str("Executing eps_system_reset()...\n");
-    uint8_t comms_err = eps_system_reset();
-    if (comms_err) {
-    	debug_uart_print_str("System reset status successful\n" );
-    }
-    else {
-    	debug_uart_print_str("System reset status unsuccessful\n" );
+//    debug_uart_print_str("Executing eps_system_reset()...\n");
+//    uint8_t comms_err = eps_system_reset();
+//    if (comms_err) {
+//    	debug_uart_print_str("System reset status successful\n" );
+//    }
+//    else {
+//    	debug_uart_print_str("System reset status unsuccessful\n" );
     }
 //    debug_uart_print_str("Executing eps_output_bus_group_off()...\n");
 //    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
