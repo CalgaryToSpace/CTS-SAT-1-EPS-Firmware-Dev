@@ -30,6 +30,8 @@
     (#) Declare a I2C_HandleTypeDef handle structure, for example:
         I2C_HandleTypeDef  hi2c;
 
+        // HAL_I2C_MspInit() needs to be done!!!!//
+
     (#)Initialize the I2C low level resources by implementing the HAL_I2C_MspInit() API:
         (##) Enable the I2Cx interface clock
         (##) I2C pins configuration
@@ -322,6 +324,14 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stm32l4xx_hal.h"
 
+// EBUBE's INCLUDES START
+// included for uart print string debugging
+#include "debug_tools/debug_uart.h"
+#include <stdio.h>
+#include <inttypes.h>
+
+// EBUBE's INCLUDES END
+
 /** @addtogroup STM32L4xx_HAL_Driver
   * @{
   */
@@ -552,6 +562,7 @@ HAL_StatusTypeDef HAL_I2C_Init(I2C_HandleTypeDef *hi2c)
 
   if (hi2c->State == HAL_I2C_STATE_RESET)
   {
+	 // NOTE - Debugger entered here
     /* Allocate lock resource and initialize it */
     hi2c->Lock = HAL_UNLOCKED;
 
@@ -577,6 +588,7 @@ HAL_StatusTypeDef HAL_I2C_Init(I2C_HandleTypeDef *hi2c)
     hi2c->MspInitCallback(hi2c);
 #else
     /* Init the low level hardware : GPIO, CLOCK, CORTEX...etc */
+    // NOTE - Debugger enters here, initialize MSP
     HAL_I2C_MspInit(hi2c);
 #endif /* USE_HAL_I2C_REGISTER_CALLBACKS */
   }
@@ -1128,10 +1140,12 @@ HAL_StatusTypeDef HAL_I2C_Master_Transmit(I2C_HandleTypeDef *hi2c, uint16_t DevA
     __HAL_LOCK(hi2c);
 
     /* Init tickstart for timeout management*/
-    tickstart = HAL_GetTick();
+    tickstart = HAL_GetTick(); // tickstart = 45
 
     if (I2C_WaitOnFlagUntilTimeout(hi2c, I2C_FLAG_BUSY, SET, I2C_TIMEOUT_BUSY, tickstart) != HAL_OK)
     {
+    // Can we print something out here to identify what is not Ok? I2C Flag print statement
+      debug_uart_print_str("I2C_WaitOnFlagUntilTimeout Error (1)\n");
       return HAL_ERROR;
     }
 
@@ -1185,6 +1199,8 @@ HAL_StatusTypeDef HAL_I2C_Master_Transmit(I2C_HandleTypeDef *hi2c, uint16_t DevA
       /* Wait until TXIS flag is set */
       if (I2C_WaitOnTXISFlagUntilTimeout(hi2c, Timeout, tickstart) != HAL_OK)
       {
+    	// Possibly print something out the IDs Transmit Error in Flag
+    	debug_uart_print_str("I2C_WaitOnTXISFlagUntilTimeout Error\n");
         return HAL_ERROR;
       }
       /* Write data to TXDR */
@@ -1201,6 +1217,8 @@ HAL_StatusTypeDef HAL_I2C_Master_Transmit(I2C_HandleTypeDef *hi2c, uint16_t DevA
         /* Wait until TCR flag is set */
         if (I2C_WaitOnFlagUntilTimeout(hi2c, I2C_FLAG_TCR, RESET, Timeout, tickstart) != HAL_OK)
         {
+        // TCR = Transmit Complete Reload
+          debug_uart_print_str("I2C_WaitOnFlagUntilTimeout Error (2) \n");
           return HAL_ERROR;
         }
 
@@ -1223,6 +1241,7 @@ HAL_StatusTypeDef HAL_I2C_Master_Transmit(I2C_HandleTypeDef *hi2c, uint16_t DevA
     /* Wait until STOPF flag is set */
     if (I2C_WaitOnSTOPFlagUntilTimeout(hi2c, Timeout, tickstart) != HAL_OK)
     {
+      debug_uart_print_str("I2C_WaitOnSTOPFlagUntilTimeout Error\n");
       return HAL_ERROR;
     }
 
@@ -1242,6 +1261,7 @@ HAL_StatusTypeDef HAL_I2C_Master_Transmit(I2C_HandleTypeDef *hi2c, uint16_t DevA
   }
   else
   {
+	debug_uart_print_str("TX_HAL is BUSY returned\n");
     return HAL_BUSY;
   }
 }
@@ -1272,6 +1292,7 @@ HAL_StatusTypeDef HAL_I2C_Master_Receive(I2C_HandleTypeDef *hi2c, uint16_t DevAd
 
     if (I2C_WaitOnFlagUntilTimeout(hi2c, I2C_FLAG_BUSY, SET, I2C_TIMEOUT_BUSY, tickstart) != HAL_OK)
     {
+//      debug_uart_print_str("I2C_WaitOnFlagUntilTimeout Error (3)\n"); we may not need this
       return HAL_ERROR;
     }
 
@@ -1304,6 +1325,7 @@ HAL_StatusTypeDef HAL_I2C_Master_Receive(I2C_HandleTypeDef *hi2c, uint16_t DevAd
       /* Wait until RXNE flag is set */
       if (I2C_WaitOnRXNEFlagUntilTimeout(hi2c, Timeout, tickstart) != HAL_OK)
       {
+//        debug_uart_print_str("I2C_WaitOnRXNEFlagUntilTimeout Error\n"); // Not sure if this is needed
         return HAL_ERROR;
       }
 
@@ -1321,6 +1343,7 @@ HAL_StatusTypeDef HAL_I2C_Master_Receive(I2C_HandleTypeDef *hi2c, uint16_t DevAd
         /* Wait until TCR flag is set */
         if (I2C_WaitOnFlagUntilTimeout(hi2c, I2C_FLAG_TCR, RESET, Timeout, tickstart) != HAL_OK)
         {
+//          debug_uart_print_str("I2C_WaitOnFlagUntilTimeout Error (4)\n");  Not sure if this is needed
           return HAL_ERROR;
         }
 
@@ -1343,6 +1366,7 @@ HAL_StatusTypeDef HAL_I2C_Master_Receive(I2C_HandleTypeDef *hi2c, uint16_t DevAd
     /* Wait until STOPF flag is set */
     if (I2C_WaitOnSTOPFlagUntilTimeout(hi2c, Timeout, tickstart) != HAL_OK)
     {
+//      debug_uart_print_str("I2C_WaitOnSTOPFlagUntilTimeout Error\n"); Not sure iff this is needed
       return HAL_ERROR;
     }
 
@@ -6870,17 +6894,40 @@ static void I2C_DMAAbort(DMA_HandleTypeDef *hdma)
   * @param  Tickstart Tick start value
   * @retval HAL status
   */
+
 static HAL_StatusTypeDef I2C_WaitOnFlagUntilTimeout(I2C_HandleTypeDef *hi2c, uint32_t Flag, FlagStatus Status,
                                                     uint32_t Timeout, uint32_t Tickstart)
 {
   while (__HAL_I2C_GET_FLAG(hi2c, Flag) == Status)
+	  // TODO: Check the flag status when this function is called
+	  // Is the flag SET or RESET?
   {
     /* Check for the Timeout */
     if (Timeout != HAL_MAX_DELAY)
     {
+    // Checks current time - start time to see if it is greater than the timeout
       if (((HAL_GetTick() - Tickstart) > Timeout) || (Timeout == 0U))
       {
+
+    	// print the current time
+    	uint32_t value = HAL_GetTick() - Tickstart;
+    	uint32_t max_delay = Timeout;
+    	char buffer[12]; // Buffer size for uint32_t is max 10 digits + sign + null terminator
+    	char anotherbuffer[12];
+    	sprintf(buffer, "%" PRIu32, value); // Convert uint32_t to string
+    	debug_uart_print_str("HAL_GetTick - Tickstart = "); // this is not going to work, pelase fix
+    	debug_uart_print_str(buffer);
+    	debug_uart_print_str("\n");
+    	sprintf(anotherbuffer, "%" PRIu32, max_delay);
+    	debug_uart_print_str("Timeout = ");
+    	debug_uart_print_str(anotherbuffer);
+    	debug_uart_print_str("\n");
+    	//
+
+
+
         if ((__HAL_I2C_GET_FLAG(hi2c, Flag) == Status))
+        // If the Flag has not been updated by this point, there is definitely an error
         {
           hi2c->ErrorCode |= HAL_I2C_ERROR_TIMEOUT;
           hi2c->State = HAL_I2C_STATE_READY;
@@ -6888,6 +6935,9 @@ static HAL_StatusTypeDef I2C_WaitOnFlagUntilTimeout(I2C_HandleTypeDef *hi2c, uin
 
           /* Process Unlocked */
           __HAL_UNLOCK(hi2c);
+
+          // Added for debugging purposes only
+          debug_uart_print_str("Flag timing error has been reached\n");
           return HAL_ERROR;
         }
       }

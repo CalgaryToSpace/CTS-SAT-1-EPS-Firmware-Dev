@@ -14,15 +14,17 @@ uint8_t eps_send_cmd_get_response(const uint8_t cmd_buf[], uint8_t cmd_buf_len, 
 	// ASSERT: rx_buf_len must be >= 5 for all commands. Raise error if it's less.
 	if (rx_buf_len < EPS_DEFAULT_RX_LEN_MIN) return 1;
 
-	if (EPS_ENABLE_DEBUG_PRINT) {
+	if (EPS_ENABLE_DEBUG_PRINT) { // 1
 		debug_uart_print_str("OBC->EPS: ");
 		debug_uart_print_array_hex(cmd_buf, cmd_buf_len, "\n");
 	}
 
+//	cmd_buf[0] = ??
+	// TODO: Check Timeout value against MAX_HAL_DELAY  **
 	HAL_StatusTypeDef tx_status = HAL_I2C_Master_Transmit(
-			&hi2c1, EPS_I2C_ADDR, (uint8_t*) cmd_buf, cmd_buf_len, 1000);
+			&hi2c1, EPS_I2C_ADDR, (uint8_t*) cmd_buf, cmd_buf_len, HAL_MAX_DELAY); // original Timeout was 1000
 	if (tx_status != HAL_OK) {
-		if (EPS_ENABLE_DEBUG_PRINT) {
+		if (EPS_ENABLE_DEBUG_PRINT) {	// Is this line necessary
 			char msg[200];
 			sprintf(msg, "OBC->EPS ERROR: tx_status != HAL_OK (%d)\n", tx_status);
 			debug_uart_print_str(msg);
@@ -105,7 +107,7 @@ uint8_t eps_run_argumentless_cmd(uint8_t command_code) {
 	const uint8_t cmd_len = 4;
 	const uint8_t rx_len = EPS_DEFAULT_RX_LEN_MIN;
 
-	uint8_t cmd_buf[cmd_len];
+	uint8_t cmd_buf[cmd_len]; // debugger observation - a bit of a delay
 	uint8_t rx_buf[rx_len];
 	
 	cmd_buf[0] = EPS_COMMAND_STID;

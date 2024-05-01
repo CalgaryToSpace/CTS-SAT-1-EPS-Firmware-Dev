@@ -209,6 +209,29 @@ void SystemClock_Config(void)
   }
 }
 
+// TODO: Initialize HAL_I2C_MspInit()
+//(#)Initialize the I2C low level resources by implementing the HAL_I2C_MspInit() API:
+//       (##) Enable the I2Cx interface clock
+//       (##) I2C pins configuration
+//           (+++) Enable the clock for the I2C GPIOs
+//           (+++) Configure I2C pins as alternate function open-drain
+//       (##) NVIC configuration if you need to use interrupt process
+//           (+++) Configure the I2Cx interrupt priority
+//           (+++) Enable the NVIC I2C IRQ Channel
+//       (##) DMA Configuration if you need to use DMA process
+//           (+++) Declare a DMA_HandleTypeDef handle structure for
+//                 the transmit or receive channel
+//           (+++) Enable the DMAx interface clock using
+//           (+++) Configure the DMA handle parameters
+//           (+++) Configure the DMA Tx or Rx channel
+//           (+++) Associate the initialized DMA handle to the hi2c DMA Tx or Rx handle
+//           (+++) Configure the priority and enable the NVIC for the transfer complete interrupt on
+//                 the DMA Tx or Rx channel
+
+//static void HAL_I2C_MspInit(){
+//
+//}
+
 /**
   * @brief I2C1 Initialization Function
   * @param None
