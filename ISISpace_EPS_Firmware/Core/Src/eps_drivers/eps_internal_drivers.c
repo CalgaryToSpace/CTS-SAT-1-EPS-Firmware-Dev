@@ -8,6 +8,7 @@
 #include "stm_drivers/timing_helpers.h"
 
 #include <stdint.h>
+#include <string.h>
 
 uint8_t eps_send_cmd_get_response_i2c(const uint8_t cmd_buf[], uint8_t cmd_buf_len, uint8_t rx_buf[], uint16_t rx_buf_len) {
 
@@ -111,8 +112,8 @@ uint8_t eps_send_cmd_get_response_uart(
 
 	// Create place to store "<cmd>ACTUAL COMMAND BYTES</cmd>" (needs about 15 extra chars for tags),
 	// and same for receive buffer.
-	const uint8_t cmd_buf_with_tags_len = cmd_buf_len + 15;
-	const uint8_t rx_buf_with_tags_len = rx_buf_len + 15;
+	const uint8_t cmd_buf_with_tags_len = cmd_buf_len + 11;
+	const uint8_t rx_buf_with_tags_len = rx_buf_len + 11;
 	uint8_t cmd_buf_with_tags[cmd_buf_with_tags_len];
 	uint8_t rx_buf_with_tags[rx_buf_with_tags_len];
 	memset(cmd_buf_with_tags, 0, cmd_buf_with_tags_len);
@@ -123,7 +124,7 @@ uint8_t eps_send_cmd_get_response_uart(
 	const uint8_t end_tag_len = 6; // len of "</cmd>" and "</rsp>", without null terminator
     strcpy((char*) cmd_buf_with_tags, "<cmd>");
     memcpy(&cmd_buf_with_tags[begin_tag_len], cmd_buf, cmd_buf_len);
-    strcpy((char*)&cmd_buf_with_tags[begin_tag_len+rx_buf_len], "</cmd>");
+    strcpy((char*)&cmd_buf_with_tags[begin_tag_len+cmd_buf_len], "</cmd>");
 
 	if (EPS_ENABLE_DEBUG_PRINT) {
 		debug_uart_print_str("OBC->EPS (no tags): ");
@@ -136,7 +137,7 @@ uint8_t eps_send_cmd_get_response_uart(
 
 	// TX TO EPS
 	HAL_StatusTypeDef tx_status = HAL_UART_Transmit(
-			&huart3, (uint8_t*) cmd_buf_with_tags, cmd_buf_with_tags_len, 1000);
+			&huart4, (uint8_t*) cmd_buf_with_tags, cmd_buf_with_tags_len, 1000);
 	if (tx_status != HAL_OK) {
 		if (EPS_ENABLE_DEBUG_PRINT) {
 			char msg[200];
@@ -153,7 +154,7 @@ uint8_t eps_send_cmd_get_response_uart(
 	// RX FROM EPS
 	// FIXME: receive more intelligently by parsing the tags
 	HAL_StatusTypeDef rx_status = HAL_UART_Receive(
-			&huart3, (uint8_t*)rx_buf_with_tags, rx_buf_len + begin_tag_len + end_tag_len, 1000);
+			&huart4, (uint8_t*)rx_buf_with_tags, rx_buf_len + begin_tag_len + end_tag_len, 1000);
 	if (rx_status != HAL_OK) {
 		if (EPS_ENABLE_DEBUG_PRINT) {
 			char msg[200];

@@ -48,7 +48,7 @@ extern "C" {
 /* USER CODE BEGIN ET */
 extern I2C_HandleTypeDef hi2c1;
 extern UART_HandleTypeDef hlpuart1;
-extern UART_HandleTypeDef huart3;
+extern UART_HandleTypeDef huart4;
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -87,8 +87,6 @@ void Error_Handler(void);
 #define TCK_GPIO_Port GPIOA
 #define SWO_Pin GPIO_PIN_3
 #define SWO_GPIO_Port GPIOB
-#define LD2_Pin GPIO_PIN_7
-#define LD2_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
