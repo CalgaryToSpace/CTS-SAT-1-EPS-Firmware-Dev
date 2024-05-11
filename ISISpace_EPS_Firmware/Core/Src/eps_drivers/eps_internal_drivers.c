@@ -9,7 +9,7 @@
 
 #include <stdint.h>
 
-uint8_t eps_send_cmd_get_response(const uint8_t cmd_buf[], uint8_t cmd_buf_len, uint8_t rx_buf[], uint16_t rx_buf_len) {
+uint8_t eps_send_cmd_get_response_i2c(const uint8_t cmd_buf[], uint8_t cmd_buf_len, uint8_t rx_buf[], uint16_t rx_buf_len) {
 
 	// ASSERT: rx_buf_len must be >= 5 for all commands. Raise error if it's less.
 	if (rx_buf_len < EPS_DEFAULT_RX_LEN_MIN) return 1;
@@ -99,6 +99,104 @@ uint8_t eps_send_cmd_get_response(const uint8_t cmd_buf[], uint8_t cmd_buf_len, 
 
 	return 0;
 }
+
+
+uint8_t eps_send_cmd_get_response_uart(
+		const uint8_t cmd_buf[], uint8_t cmd_buf_len,
+		uint8_t rx_buf[], uint16_t rx_buf_len) {
+
+
+	// ASSERT: rx_buf_len must be >= 5 for all commands. Raise error if it's less.
+	if (rx_buf_len < EPS_DEFAULT_RX_LEN_MIN) return 1;
+
+	// Create place to store "<cmd>ACTUAL COMMAND BYTES</cmd>" (needs about 15 extra chars for tags),
+	// and same for receive buffer.
+	const uint8_t cmd_buf_with_tags_len = cmd_buf_len + 15;
+	const uint8_t rx_buf_with_tags_len = rx_buf_len + 15;
+	uint8_t cmd_buf_with_tags[cmd_buf_with_tags_len];
+	uint8_t rx_buf_with_tags[rx_buf_with_tags_len];
+	memset(cmd_buf_with_tags, 0, cmd_buf_with_tags_len);
+	memset(rx_buf_with_tags, 0, rx_buf_with_tags_len);
+
+	// pack the cmd_buf_with_tags buffer
+	const uint8_t begin_tag_len = 5; // len of "<cmd>" and "<rsp>", without null terminator
+	const uint8_t end_tag_len = 6; // len of "</cmd>" and "</rsp>", without null terminator
+    strcpy((char*) cmd_buf_with_tags, "<cmd>");
+    memcpy(&cmd_buf_with_tags[begin_tag_len], cmd_buf, cmd_buf_len);
+    strcpy((char*)&cmd_buf_with_tags[begin_tag_len+rx_buf_len], "</cmd>");
+
+	if (EPS_ENABLE_DEBUG_PRINT) {
+		debug_uart_print_str("OBC->EPS (no tags): ");
+		debug_uart_print_array_hex(cmd_buf, cmd_buf_len, "\n");
+		debug_uart_print_str("OBC->EPS (with tags): ");
+		debug_uart_print_array_hex(cmd_buf_with_tags, cmd_buf_with_tags_len, "\n");
+	}
+
+	// TODO: flush the UART buffer
+
+	// TX TO EPS
+	HAL_StatusTypeDef tx_status = HAL_UART_Transmit(
+			&huart3, (uint8_t*) cmd_buf_with_tags, cmd_buf_with_tags_len, 1000);
+	if (tx_status != HAL_OK) {
+		if (EPS_ENABLE_DEBUG_PRINT) {
+			char msg[200];
+			sprintf(msg, "OBC->EPS ERROR: tx_status != HAL_OK (%d)\n", tx_status);
+			debug_uart_print_str(msg);
+		}
+		return 2;
+	}
+
+	// wait a sec for the EPS to respond
+	// TODO: change this mechanism
+	delay_ms(100);
+
+	// RX FROM EPS
+	// FIXME: receive more intelligently by parsing the tags
+	HAL_StatusTypeDef rx_status = HAL_UART_Receive(
+			&huart3, (uint8_t*)rx_buf_with_tags, rx_buf_len + begin_tag_len + end_tag_len, 1000);
+	if (rx_status != HAL_OK) {
+		if (EPS_ENABLE_DEBUG_PRINT) {
+			char msg[200];
+			sprintf(msg, "OBC->EPS ERROR: rx_status != HAL_OK (%d)\n", rx_status);
+			debug_uart_print_str(msg);
+		}
+		return 3;
+	}
+
+	// FIXME: pack the rx_buf less-naively
+	memcpy(rx_buf, &rx_buf_with_tags[begin_tag_len], rx_buf_len);
+
+	if (EPS_ENABLE_DEBUG_PRINT) {
+		debug_uart_print_str("EPS->OBC (with tags): ");
+		debug_uart_print_array_hex(rx_buf_with_tags, rx_buf_with_tags_len, "\n");
+		debug_uart_print_str("EPS->OBC (no tags): ");
+		debug_uart_print_array_hex(rx_buf, rx_buf_len, "\n");
+	}
+
+	// Check STAT field (Table 3-11) - 0x00 and 0x80 mean success
+	// TODO: consider doing this check in the next level up
+	uint8_t eps_stat_field = rx_buf[4];
+	if ((eps_stat_field != 0x00) && (eps_stat_field != 0x80)) {
+		if (EPS_ENABLE_DEBUG_PRINT) {
+			char msg[100];
+			sprintf(msg,
+					"EPS returned an error in the STAT field: 0x%02x (see ESP_SICD Table 3-11)\n",
+					eps_stat_field);
+			debug_uart_print_str(msg);
+		}
+	}
+
+	return 0;
+}
+
+
+
+uint8_t eps_send_cmd_get_response(
+		const uint8_t cmd_buf[], uint8_t cmd_buf_len,
+		uint8_t rx_buf[], uint16_t rx_buf_len) {
+	return eps_send_cmd_get_response_uart(cmd_buf, cmd_buf_len, rx_buf, rx_buf_len);
+}
+
 
 
 uint8_t eps_run_argumentless_cmd(uint8_t command_code) {

@@ -119,11 +119,19 @@ int main(void)
     HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
 
     // I2C scan
-    debug_i2c_scan();
+//    debug_i2c_scan();
 
 
+    /////////////////////////////////////////////////////////
+    /////////////// SERVICE THE WATCHDOG ////////////////////
+    /////////////////////////////////////////////////////////
     debug_uart_print_str("Executing eps_watchdog()...\n");
     eps_watchdog();
+
+
+    /////////////////////////////////////////////////////////
+    /////////////// GET THE SYSTEM STATUS ///////////////////
+    /////////////////////////////////////////////////////////
 
     eps_result_system_status_t system_status;
     debug_uart_print_str("Fetching system status info...\n");
@@ -134,14 +142,24 @@ int main(void)
       eps_debug_uart_print_system_status(&system_status);
     }
 
-    const uint16_t CH_BF = 1<< 12;
-    const uint16_t CH_EXT_BF = 0;
 
-    debug_uart_print_str("Executing eps_output_bus_group_on( <CH12> )...\n");
-    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7); //blue LED for bus group on
-    eps_output_bus_group_on( CH_BF,   CH_EXT_BF);
-    HAL_Delay(5000);
+    /////////////////////////////////////////////////////////
+    /////////////// TOGGLE A BUS GROUP //////////////////////
+    /////////////////////////////////////////////////////////
 
+//    const uint16_t CH_BF = 1<< 12;
+//    const uint16_t CH_EXT_BF = 0;
+//
+//    debug_uart_print_str("Executing eps_output_bus_group_on( <CH12> )...\n");
+//    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7); //blue LED for bus group on
+//    eps_output_bus_group_on( CH_BF,   CH_EXT_BF);
+//    HAL_Delay(5000);
+
+
+
+    /////////////////////////////////////////////////////////
+    /////////////// TEST THE SYSTEM RESET ///////////////////
+    /////////////////////////////////////////////////////////
 //    debug_uart_print_str("Executing eps_system_reset()...\n");
 //    uint8_t comms_err = eps_system_reset();
 //    if (comms_err) {
