@@ -137,7 +137,7 @@ uint8_t eps_send_cmd_get_response_uart(
 
 	// TX TO EPS
 	HAL_StatusTypeDef tx_status = HAL_UART_Transmit(
-			&huart4, (uint8_t*) cmd_buf_with_tags, cmd_buf_with_tags_len, 1000);
+			&huart4, (uint8_t*) cmd_buf_with_tags, cmd_buf_with_tags_len, 1000); // 1000
 	if (tx_status != HAL_OK) {
 		if (EPS_ENABLE_DEBUG_PRINT) {
 			char msg[200];
@@ -154,7 +154,7 @@ uint8_t eps_send_cmd_get_response_uart(
 	// RX FROM EPS
 	// FIXME: receive more intelligently by parsing the tags
 	HAL_StatusTypeDef rx_status = HAL_UART_Receive(
-			&huart4, (uint8_t*)rx_buf_with_tags, rx_buf_len + begin_tag_len + end_tag_len, 1000);
+			&huart4, (uint8_t*)rx_buf_with_tags, rx_buf_len + begin_tag_len + end_tag_len, 11); //
 	if (rx_status != HAL_OK) {
 		if (EPS_ENABLE_DEBUG_PRINT) {
 			char msg[200];

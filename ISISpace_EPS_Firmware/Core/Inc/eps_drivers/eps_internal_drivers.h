@@ -19,7 +19,7 @@
 
 #define EPS_COMMAND_STID 0x1A // "System Type Identifier (STID)" (Software ICD, page 17)
 #define EPS_COMMAND_IVID 0x07 // "Interface Version Identifier (IVID)" (Software ICD, page 18)
-#define EPS_COMMAND_BID 0x01 // "Board Identifier (BID)" (Software ICD, page 20)
+#define EPS_COMMAND_BID 0x00 // "Board Identifier (BID)" (Software ICD, page 20)
 
 #define EPS_DEFAULT_RX_LEN_MIN 5 // for commands with no response params, 5 bytes are returned
 

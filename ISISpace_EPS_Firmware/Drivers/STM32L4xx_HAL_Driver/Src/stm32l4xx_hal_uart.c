@@ -3550,7 +3550,8 @@ HAL_StatusTypeDef UART_WaitOnFlagUntilTimeout(UART_HandleTypeDef *huart, uint32_
     {
       if (((HAL_GetTick() - Tickstart) > Timeout) || (Timeout == 0U))
       {
-
+    	// This is where receive is currently timing out
+    	debug_uart_print_str("TIMEOUT ERROR (1)\n");
         return HAL_TIMEOUT;
       }
 
@@ -3587,7 +3588,7 @@ HAL_StatusTypeDef UART_WaitOnFlagUntilTimeout(UART_HandleTypeDef *huart, uint32_
 
           /* Process Unlocked */
           __HAL_UNLOCK(huart);
-
+          debug_uart_print_str("TIMEOUT ERROR (2)\n");
           return HAL_TIMEOUT;
         }
       }
