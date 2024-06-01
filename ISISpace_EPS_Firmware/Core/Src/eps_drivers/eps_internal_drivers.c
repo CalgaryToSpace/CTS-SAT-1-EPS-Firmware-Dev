@@ -152,42 +152,115 @@ uint8_t eps_send_cmd_get_response_uart(
 	delay_ms(100);
 
 	// RX FROM EPS
+
 	// FIXME: receive more intelligently by parsing the tags
-	HAL_StatusTypeDef rx_status = HAL_UART_Receive(
-			&huart4, (uint8_t*)rx_buf_with_tags, rx_buf_len + begin_tag_len + end_tag_len, 11); //
-	if (rx_status != HAL_OK) {
-		if (EPS_ENABLE_DEBUG_PRINT) {
-			char msg[200];
-			sprintf(msg, "OBC->EPS ERROR: rx_status != HAL_OK (%d)\n", rx_status);
-			debug_uart_print_str(msg);
-		}
+
+//	HAL_StatusTypeDef rx_status = HAL_UART_Receive(
+//			&huart4, (uint8_t*)rx_buf_with_tags, rx_buf_len + begin_tag_len + end_tag_len, 11); //
+//	if (rx_status != HAL_OK) {
+//		if (EPS_ENABLE_DEBUG_PRINT) {
+//			char msg[200];
+//			sprintf(msg, "OBC->EPS ERROR: rx_status != HAL_OK (%d)\n", rx_status);
+//			debug_uart_print_str(msg);
+//		}
+//		return 3;
+//	}
+
+	if(receiveData(rx_buf_with_tags, rx_buf_len) != 0){
 		return 3;
-	}
+
+	};
 
 	// FIXME: pack the rx_buf less-naively
 	memcpy(rx_buf, &rx_buf_with_tags[begin_tag_len], rx_buf_len);
 
-	if (EPS_ENABLE_DEBUG_PRINT) {
-		debug_uart_print_str("EPS->OBC (with tags): ");
-		debug_uart_print_array_hex(rx_buf_with_tags, rx_buf_with_tags_len, "\n");
-		debug_uart_print_str("EPS->OBC (no tags): ");
-		debug_uart_print_array_hex(rx_buf, rx_buf_len, "\n");
-	}
-
-	// Check STAT field (Table 3-11) - 0x00 and 0x80 mean success
-	// TODO: consider doing this check in the next level up
-	uint8_t eps_stat_field = rx_buf[4];
-	if ((eps_stat_field != 0x00) && (eps_stat_field != 0x80)) {
 		if (EPS_ENABLE_DEBUG_PRINT) {
-			char msg[100];
-			sprintf(msg,
-					"EPS returned an error in the STAT field: 0x%02x (see ESP_SICD Table 3-11)\n",
-					eps_stat_field);
-			debug_uart_print_str(msg);
+			debug_uart_print_str("EPS->OBC (with tags): ");
+			debug_uart_print_array_hex(rx_buf_with_tags, rx_buf_with_tags_len, "\n");
+			debug_uart_print_str("EPS->OBC (no tags): ");
+			debug_uart_print_array_hex(rx_buf, rx_buf_len, "\n");
 		}
+
+		// Check STAT field (Table 3-11) - 0x00 and 0x80 mean success
+		// TODO: consider doing this check in the next level up
+		int8_t eps_stat_field = rx_buf[4];
+		if ((eps_stat_field != 0x00) && (eps_stat_field != 0x80)) {
+			if (EPS_ENABLE_DEBUG_PRINT) {
+				char msg[100];
+				sprintf(msg, "EPS returned an error in the STAT field: 0x%02x (see ESP_SICD Table 3-11)\n", eps_stat_field);
+				debug_uart_print_str(msg);
+				}
+		}
+
+		return 0;
+
+
+}
+
+//HAL_StatusTypeDef rx_status = HAL_UART_Receive(
+//			&huart4, (uint8_t*)rx_buf_with_tags, rx_buf_len + begin_tag_len + end_tag_len, 11); //
+//	if (rx_status != HAL_OK) {
+//		if (EPS_ENABLE_DEBUG_PRINT) {
+//			char msg[200];
+//			sprintf(msg, "OBC->EPS ERROR: rx_status != HAL_OK (%d)\n", rx_status);
+//			debug_uart_print_str(msg);
+//		}
+//		return 3;
+//	}
+
+uint8_t receiveData(uint8_t *dataBuffer, uint16_t rx_buf_len){
+	uint8_t rx_byte;
+	uint16_t i = 0;
+	uint32_t Timeout;
+
+	Timeout = 50;
+
+	HAL_StatusTypeDef rx_status = HAL_UART_Receive(&huart4, &rx_byte, 1, Timeout);
+	while(1){
+//		tickstart = HAL_GetTick();
+
+		if(rx_status == HAL_OK){
+			dataBuffer[i] = rx_byte;
+			i++;
+
+			if(i > rx_buf_len){ // Means that data
+				char msg[200];
+				sprintf(msg, "Successfully Received!");
+				debug_uart_print_str(msg);
+				return 0;
+			}
+		}
+
+		else if(rx_status == HAL_TIMEOUT){
+			char msg[200];
+			sprintf(msg, "OBC -> EPS TIMEOUT ERROR: rx_status == HAL_TIMEOUT (%d)\n", rx_status);
+			debug_uart_print_str(msg);
+			return 2;
+		}
+
+		else{
+			if (EPS_ENABLE_DEBUG_PRINT) {
+				char msg[200];
+				sprintf(msg, "OBC->EPS ERROR: rx_status != HAL_OK (%d)\n", rx_status);
+				debug_uart_print_str(msg);
+
+//				if((HAL_GetTick() - tickstart > Timeout)){
+
+				return 3;
+			}
+		}
+
+//		if(rx_byte == '\r'){
+//			dataBuffer[i] = '\0';
+//			return 0;
+//		}
+
 	}
 
-	return 0;
+// There are 3 ways to check for the end of the EPS:
+	// 1) Receive a timeout error - easy
+	// 2) Check for the end tag
+	// 3) Check that the length is the expected length - check value of i
 }
 
 
