@@ -211,21 +211,25 @@ uint8_t eps_send_cmd_get_response_uart(
 uint8_t receiveData(uint8_t *dataBuffer, uint16_t rx_buf_len){
 	uint8_t rx_byte;
 	uint16_t i = 0;
-	uint32_t Timeout;
+	const uint32_t Timeout = 500;
 
-	Timeout = 50;
-
-	HAL_StatusTypeDef rx_status = HAL_UART_Receive(&huart4, &rx_byte, 1, Timeout);
 	while(1){
 //		tickstart = HAL_GetTick();
 
+		const HAL_StatusTypeDef rx_status = HAL_UART_Receive(&huart4, &rx_byte, 1, Timeout);
+
+
 		if(rx_status == HAL_OK){
+			debug_uart_print_str("RXd: ");
+			debug_uart_print_array_hex(&rx_byte, 1, "");
+			debug_uart_print_str("\n");
+
 			dataBuffer[i] = rx_byte;
 			i++;
 
-			if(i > rx_buf_len){ // Means that data
+			if(i >= rx_buf_len){ // Means that data
 				char msg[200];
-				sprintf(msg, "Successfully Received!");
+				sprintf(msg, "Successfully Received! \n");
 				debug_uart_print_str(msg);
 				return 0;
 			}
@@ -241,7 +245,7 @@ uint8_t receiveData(uint8_t *dataBuffer, uint16_t rx_buf_len){
 		else{
 			if (EPS_ENABLE_DEBUG_PRINT) {
 				char msg[200];
-				sprintf(msg, "OBC->EPS ERROR: rx_status != HAL_OK (%d)\n", rx_status);
+				sprintf(msg, "OBC->EPS ERROR: rx_status != HAL_OK|TIMEOUT (%d)\n", rx_status);
 				debug_uart_print_str(msg);
 
 //				if((HAL_GetTick() - tickstart > Timeout)){

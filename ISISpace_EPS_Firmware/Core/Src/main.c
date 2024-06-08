@@ -136,14 +136,14 @@ int main(void)
     /////////////// GET THE SYSTEM STATUS ///////////////////
     /////////////////////////////////////////////////////////
 
-    eps_result_system_status_t system_status;
-    debug_uart_print_str("Fetching system status info...\n");
-    uint8_t system_status_err = eps_get_system_status(&system_status);
-
-    if (system_status_err == 0) {
-      debug_uart_print_str("System status info, no error!:\n");
-      eps_debug_uart_print_system_status(&system_status);
-    }
+//    eps_result_system_status_t system_status;
+//    debug_uart_print_str("Fetching system status info...\n");
+//    uint8_t system_status_err = eps_get_system_status(&system_status);
+//
+//    if (system_status_err == 0) {
+//      debug_uart_print_str("System status info, no error!:\n");
+//      eps_debug_uart_print_system_status(&system_status);
+//    }
 
 
     /////////////////////////////////////////////////////////
