@@ -1,6 +1,11 @@
 # CTS-SAT-1-EPS-Firmware-Dev
 ISISpace EPS firmware development for the OBC. This repo will be archived and integrated with the main OBC firmware upon completion.
 
+## ⚠️ Archival/End-of-Life Notice ⚠️
+
+⚠️ This repo is no longer used, and is out-of-date. The EPS firmware has been migrated into the main CTS-SAT-1 OBC firmware repo. ⚠️
+
+
 ## EPS Lessons Learned
 1. The Software ICD suggests that "waiting 20ms after transmitting" is enough to ensure you'll get a good response, but that polling is another option. This is a lie; polling appears to be the only option, as the reception is unreliable no matter how long you wait.
 2. For I2C on the STM32, you must left-shift the address by 1, compared to what's in the Software ICD.
